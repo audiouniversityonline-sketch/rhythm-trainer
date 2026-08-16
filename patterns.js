@@ -138,7 +138,7 @@ window.PATTERNS = (function () {
          sig:[4,4], div:8, ticks:4,
          voices:{ R:[0,3,4,7], F:[0] } }),
 
-    mk({ id:"rd-3", name:"Dotted quarter figure", short:"4/4", group:"reading",
+    mk({ id:"rd-3", name:"Off-beat push", short:"4/4", group:"reading",
          sig:[4,4], div:8, ticks:4,
          voices:{ R:[0,3,6], F:[0] } }),
 
@@ -250,7 +250,8 @@ window.PATTERNS = (function () {
     const out = {};
     ["R","L","F"].forEach(v => (P.voices[v] || []).forEach(pos => {
       const d = pieceAt(P, v, pos, fallback[v]);
-      if (!out[d]) out[d] = { onsets: [], limb: v };
+      if (!out[d]) out[d] = { onsets: [], limb: v, limbs: [] };
+      if (out[d].limbs.indexOf(v) === -1) out[d].limbs.push(v);
       out[d].onsets.push(pos);
     }));
     return out;

@@ -17,10 +17,11 @@ const CONFIG = {
 const C = {
   s1:"#101216", s2:"#15181d", s3:"#1b1f26",
   line:"#20242b", line2:"#2b313a", line3:"#3a424d",
-  tx1:"#eef0f3", tx2:"#98a1ac", tx3:"#616a75", tx4:"#454d57",
+  tx1:"#eef0f3", tx2:"#98a1ac", tx3:"#7b8794", tx4:"#707e8e",
   ok:"#4ade80"
 };
 const COL  = { R:"#ffa62b", L:"#2dd4bf", F:"#a78bfa" };
+const HIT_RED = "#ff3b47";   // marker for what the student actually struck
 /* Every surface on the kit. Order is the order they appear in Setup. */
 const PIECES = ["hihat","ride","crash1","crash2","snare","rim","tom1","tom2","floor","kick"];
 const KIT_LABEL = { hihat:"Hi-hat", ride:"Ride", crash1:"Crash 1", crash2:"Crash 2",
@@ -78,13 +79,17 @@ function save(){
 function load(){
   try {
     const d = JSON.parse(localStorage.getItem(STORE) || "{}");
-    if (d.progress) S.progress = d.progress;
-    if (d.show) Object.assign(S.show, d.show);
-    if (d.latency) Object.assign(S.latency, d.latency);
-    if (d.sound) Object.assign(S.sound, d.sound);
-    if (d.limbs) Object.assign(S.limbs, d.limbs);
-    if (d.midiMap) Object.assign(MIDI.map, d.midiMap);
-    if (d.bpm) S.bpm = d.bpm;
+    // Validate on the way in. A stored value from an older build could
+    // otherwise throw inside rebuild() and take the whole boot with it.
+    if (d.progress && typeof d.progress === "object") S.progress = d.progress;
+    if (d.show) Object.keys(S.show).forEach(k => { if (k in d.show) S.show[k] = d.show[k] ? 1 : 0; });
+    if (d.latency) ["keyboard","midi"].forEach(k => {
+      if (Number.isFinite(+d.latency[k])) S.latency[k] = +d.latency[k]; });
+    if (d.sound) ["R","L","F"].forEach(v => { if (KIT_LABEL[d.sound[v]]) S.sound[v] = d.sound[v]; });
+    if (d.limbs) ["R","L","F"].forEach(v => { if (v in d.limbs) S.limbs[v] = d.limbs[v] ? 1 : 0; });
+    if (d.midiMap) PIECES.forEach(p => {
+      if (Array.isArray(d.midiMap[p])) MIDI.map[p] = d.midiMap[p].filter(Number.isInteger); });
+    if (Number.isFinite(+d.bpm)) S.bpm = Math.max(30, Math.min(220, Math.round(+d.bpm)));
   } catch (e) {}
 }
 
@@ -224,7 +229,7 @@ function play(){
   nextCycle = 0; scheduled = []; barsPlayed = 0;
   taps = []; drawScatter();          // each press of play is a fresh run
   S.lesson.judged = false;
-  S.playing = true; setPlayIcon(true);
+  S.playing = true; idleDrawn = false; setPlayIcon(true);
   timer = setInterval(scheduler, 25); scheduler();
 }
 function stop(){
@@ -278,7 +283,7 @@ function buildGrid(){
       const isOn = on.has(i);
       const r = el("rect", { x:L+i*(cw+gap), y:rowY[k], width:cw, height:rowH, rx:5,
         fill: isOn ? COL[v] : C.s3, stroke: isOn ? "none" : C.line2,
-        "fill-opacity": isOn ? .42 : 1 });
+        "fill-opacity": isOn ? .55 : 1 });
       svg.appendChild(r); gridCells[v].push({ el:r, on:isOn });
     }
   });
@@ -307,6 +312,14 @@ function buildGrid(){
   svg.setAttribute("viewBox", "0 0 1000 236");
 
   ui.gridnote.textContent = N + " boxes";
+  // A text equivalent of the exercise, for anyone who cannot see the boxes.
+  ui.grid.setAttribute("role", "img");
+  ui.grid.removeAttribute("aria-hidden");
+  ui.grid.setAttribute("aria-label",
+    P.name + ", " + P.sig[0] + "/" + P.sig[1] + ", " + N + " boxes. " +
+    ["R","L","F"].filter(v => (P.voices[v] || []).length).map(v =>
+      LIMB_LABEL[v] + " on " + P.voices[v].map(i => i + 1).join(", ") +
+      " on the " + KIT_LABEL[limbPiece(v)].toLowerCase()).join(". ") + ".");
 }
 
 function buildWheel(){
@@ -326,7 +339,7 @@ function buildWheel(){
   ["R","L","F"].forEach(v => (P.voices[v] || []).forEach(pos => {
     const a = -Math.PI/2 + pos * 2*Math.PI/P.div;
     const d = el("circle", { cx:cx+radii[v]*Math.cos(a), cy:cy+radii[v]*Math.sin(a),
-      r: v === "F" ? 5.5 : 7.5, fill:COL[v], opacity:.4 });
+      r: v === "F" ? 5.5 : 7.5, fill:COL[v], opacity:.55 });
     svg.appendChild(d); wheelDots[v].push({ el:d, pos, r: v === "F" ? 5.5 : 7.5 });
   }));
   svg.setAttribute("viewBox", "0 0 320 236");
@@ -389,31 +402,39 @@ function buildKit(){
   KIT_GEO.forEach(k => {
     const use = pieceMap[k.id];
     const col = use ? COL[use.limb] : null;
-    const shape = el("ellipse", { cx:k.cx, cy:k.cy, rx:k.rx, ry:k.ry,
+    // Limb is carried by hue AND by outline pattern, so the kit still reads
+    // for a colour-blind player: right solid, left dashed, foot dotted.
+    const dash = use ? { R:"", L:"8 4", F:"2 3" }[use.limb] : "";
+    const shape = el("ellipse", Object.assign({ cx:k.cx, cy:k.cy, rx:k.rx, ry:k.ry,
       fill: col || C.s3, "fill-opacity": col ? .12 : .7,
-      stroke: col || C.line2, "stroke-width": col ? 1.75 : 1.25,
-      "stroke-opacity": col ? .5 : 1 });
+      stroke: col || C.line2, "stroke-width": col ? 2 : 1.25,
+      "stroke-opacity": col ? .6 : 1 }, dash ? { "stroke-dasharray":dash } : {}));
     svg.appendChild(shape);
     if (!k.cym) svg.appendChild(el("ellipse", { cx:k.cx, cy:k.cy, rx:k.rx*.7, ry:k.ry*.64,
       fill:"none", stroke: col || C.line, "stroke-width":1, "stroke-opacity":.45 }));
-    svg.appendChild(txt(k.cx, k.cy + k.ry + 15, k.label,
+    const who = use ? "  " + use.limbs.join("") : "";
+    svg.appendChild(txt(k.cx, k.cy + k.ry + 15, k.label + who,
       { fill: col ? C.tx2 : C.tx4, "font-size":10.5 }));
-    kitEls.push({ id:k.id, el:shape, base: col ? .12 : .7, active: !!col, col });
+    // Marker for what the STUDENT hit, kept separate from the illumination
+    // that shows what the exercise wants. Every surface gets one, including
+    // drums this exercise never uses, so the kit doubles as a pad-mapping
+    // check: hit a pad, see which drum answers.
+    const dotR = Math.max(4.5, Math.min(9, k.ry * .3));
+    const ring = el("circle", { cx:k.cx, cy:k.cy, r:dotR + 2.5, fill:"none",
+      stroke:"#12060a", "stroke-width":3, opacity:0 });
+    const dot = el("circle", { cx:k.cx, cy:k.cy, r:dotR, fill:HIT_RED,
+      stroke:"#ffffff", "stroke-width":1.8, opacity:0 });
+    svg.appendChild(ring); svg.appendChild(dot);
+    kitEls.push({ id:k.id, el:shape, base: col ? .12 : .7, active: !!col, col, dot, ring, dotR });
   });
   const used = Object.keys(pieceMap);
-  ui.kitnote.textContent = used.length + (used.length === 1 ? " drum" : " drums") + " in this one";
+  ui.kitnote.innerHTML = used.length + (used.length === 1 ? " drum" : " drums") +
+    ' in this one &nbsp;<span style="color:' + HIT_RED + '">&#9679;</span> you';
 }
-/* Light a surface when the student actually hits it. */
-function flashKit(piece){
-  const k = kitEls.find(x => x.id === piece); if (!k) return;
-  k.el.setAttribute("fill", C.tx1);
-  k.el.setAttribute("fill-opacity", .85);
-  clearTimeout(k._t);
-  k._t = setTimeout(() => {
-    k.el.setAttribute("fill", k.col || C.s3);
-    k.el.setAttribute("fill-opacity", k.base);
-  }, 140);
-}
+/* Record that the student struck a surface. The frame loop draws and fades
+   the marker, so it never fights the pattern illumination underneath. */
+const kitHit = {};
+function pingKit(piece){ if (piece) { kitHit[piece] = performance.now(); idleDrawn = false; } }
 
 function buildNotation(){
   const P = AP();
@@ -435,7 +456,7 @@ function buildNotation(){
 /* ============================================================
    ANIMATION
    ============================================================ */
-let lastPhase = 0, lastTickIdx = -1;
+let lastPhase = 0, lastTickIdx = -1, idleDrawn = false;
 function voiceFire(phase, onsets, div, w){
   if (!onsets || !onsets.length) return 0;
   const p = phase * div;
@@ -456,11 +477,16 @@ function ballY(phase, onsets, div){
 function paintLimb(node, v, b){
   node.style.backgroundColor = b > .01 ? rgba(COL[v], .06 + b * .5) : "";
   node.style.borderColor = b > .05 ? rgba(COL[v], .3 + b * .7) : "";
-  node.style.transform = "scale(" + (1 + b * .028).toFixed(4) + ")";
+  node.style.transform = CALM.matches ? "" : "scale(" + (1 + b * .028).toFixed(4) + ")";
 }
 
 function frame(){
   requestAnimationFrame(frame);
+  // Nothing is moving when stopped with no marker fading, so skip the work
+  // rather than repainting at display refresh on a phone for 40 minutes.
+  if (document.hidden) return;
+  if (!S.playing && !CAL.running && !Object.keys(kitHit).length && idleDrawn) return;
+  idleDrawn = !S.playing && !CAL.running;
   const P = AP();
 
   if (CAL.running && ctx) {
@@ -470,7 +496,7 @@ function frame(){
     if (prev >= 0) { const s = ctx.currentTime - CAL.times[prev]; b = s < .18 ? 1 - s/.18 : 0; }
     ui.calTarget.style.backgroundColor = rgba(C.ok, .05 + b * .45);
     ui.calTarget.style.borderColor = b > .05 ? C.ok : "";
-    ui.calTarget.style.transform = "scale(" + (1 + b * .025).toFixed(4) + ")";
+    ui.calTarget.style.transform = CALM.matches ? "" : "scale(" + (1 + b * .025).toFixed(4) + ")";
   }
 
   let phase = lastPhase, counting = false;
@@ -493,13 +519,23 @@ function frame(){
   if (S.show.limbs) ["R","L","F"].forEach(v => paintLimb(ui["limb"+v], v, fire[v]));
 
   if (S.show.kit && kitEls.length) {
+    const now = performance.now();
     kitEls.forEach(k => {
-      if (k._t) return;                        // a real hit is flashing it
       const use = pieceMap[k.id];
       const b = use && live ? voiceFire(phase, use.onsets, P.div, w) : 0;
       k.el.setAttribute("fill-opacity", (k.base + b * .78).toFixed(3));
       k.el.setAttribute("stroke-opacity", (k.active ? .5 + b * .5 : 1).toFixed(3));
       k.el.setAttribute("stroke-width", k.active ? (1.75 + b * 1.75).toFixed(2) : 1.25);
+      const t0 = kitHit[k.id];
+      const h = t0 === undefined ? 0 : Math.max(0, Math.min(1, 1 - (now - t0) / 300));
+      if (h !== k._h) {
+        k._h = h;
+        k.dot.setAttribute("opacity", h.toFixed(3));
+        k.ring.setAttribute("opacity", (h * .8).toFixed(3));
+        const r = k.dotR * (.8 + h * .35);
+        k.dot.setAttribute("r", r.toFixed(2)); k.ring.setAttribute("r", (r + 2.5).toFixed(2));
+        if (h === 0) delete kitHit[k.id];
+      }
     });
   }
 
@@ -520,7 +556,7 @@ function frame(){
     ["R","L","F"].forEach(v => wheelDots[v].forEach(d => {
       let s = phase * P.div - d.pos; if (s < 0) s += P.div;
       const b = live && s < w ? 1 - s/w : 0;
-      d.el.setAttribute("r", d.r + b*6); d.el.setAttribute("opacity", .4 + b*.6);
+      d.el.setAttribute("r", d.r + b*6); d.el.setAttribute("opacity", .55 + b*.45);
     }));
   }
   if (S.show.balls) ["R","L","F"].forEach(v => {
@@ -534,7 +570,7 @@ function frame(){
     gridHead.setAttribute("x", gridHead._L + idx*(gridHead._cw + gridHead._gap));
     gridHead.setAttribute("opacity", live ? .85 : .2);
     ["R","L","F"].forEach(v => gridCells[v].forEach((c, i) => {
-      if (c.on) c.el.setAttribute("fill-opacity", live && i === idx ? 1 : .42);
+      if (c.on) c.el.setAttribute("fill-opacity", live && i === idx ? 1 : .55);
     }));
   }
   if (S.show.comp) compDots.forEach(c => {
@@ -587,7 +623,7 @@ function finishCal(){
 /* General MIDI percussion defaults, per surface. Most kits ship with these. */
 const GM = {
   hihat:[42,44,46,22,26], ride:[51,59,53], crash1:[49,55], crash2:[57,52],
-  snare:[38,40], rim:[37,39], tom1:[48,50], tom2:[45,47], floor:[41,43], kick:[35,36,33]
+  snare:[38,40], rim:[37],    tom1:[48,50], tom2:[45,47], floor:[41,43], kick:[35,36]
 };
 const MIDI = { access:null, map:{}, learn:null, on:false };
 PIECES.forEach(p => { MIDI.map[p] = (GM[p] || []).slice(); });
@@ -628,7 +664,7 @@ function onMidi(e){
     MIDI.learn = null; buildMidiRows(); return;
   }
   for (const p of PIECES) if (MIDI.map[p].indexOf(note) !== -1) {
-    flashDot(p); flashKit(p);
+    flashDot(p);
     strike({ piece:p }, inputTime(e.timeStamp), "midi");
     ui.midiNote.innerHTML = "Last hit: <b>" + KIT_LABEL[p] + "</b>, note " + note + ".";
     return;
@@ -705,8 +741,40 @@ function flashPad(v){
 /* sel is either {limb} from the keyboard or {piece} from a real pad.
    A pad hit is matched against onsets on that surface, so hitting the ride
    when the exercise wants the hi-hat does not score. */
+/* Which surface a limb is on right now, so a key or on-screen pad marks
+   the drum the pattern actually has that hand playing at this moment. */
+function nearestPiece(limb){
+  if (!limb || !ctx || !scheduled.length) return null;
+  let best = null, bd = Infinity;
+  for (const n of scheduled) {
+    if (n.voice !== limb) continue;
+    const d = Math.abs(ctx.currentTime - n.t);
+    if (d < bd) { bd = d; best = n.piece; }
+  }
+  return best;
+}
+
+/* Nearest scheduled note on a surface, so a pad hit is credited to the hand
+   that actually plays it at this moment — in an alternating tom fill both
+   hands share every drum, and pieceMap alone would call them all right. */
+function nearestOnPiece(piece){
+  if (!piece || !ctx || !scheduled.length) return null;
+  let best = null, bd = Infinity;
+  for (const n of scheduled) {
+    if (n.piece !== piece) continue;
+    const d = Math.abs(ctx.currentTime - n.t);
+    if (d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
 function strike(sel, t, source){
-  const limb = sel.limb || limbForPiece(sel.piece);
+  const near = sel.piece ? nearestOnPiece(sel.piece) : null;
+  const limb = sel.limb || (near && near.voice) || limbForPiece(sel.piece);
+  // Mark the kit before any guard runs. The marker has to appear while
+  // stopped, mid-calibration, and on limbs that are not being graded —
+  // checking which pad maps to which drum is exactly what you do first.
+  pingKit(sel.piece || nearestPiece(sel.limb) || (sel.limb && limbPiece(sel.limb)));
   if (limb) flashPad(limb);
   if (CAL.running) { calTap(t, source); return; }
   if (!S.playing || !ctx || ctx.currentTime < startTime) return;
@@ -816,7 +884,7 @@ function drawScatter(){
     const recent = taps.slice(-60);
     recent.forEach((t, i) => svg.appendChild(el("circle", {
       cx:Math.max(L+2, Math.min(R-2, mid + (t.d - res.drift)*sc)), cy:y + (i%3-1)*7,
-      r:3.4, fill:COL[t.voice], opacity:.2 + (i+1)/recent.length*.75 })));
+      r:3.4, fill:COL[t.voice], opacity:.38 + (i+1)/recent.length*.6 })));
     ui.stSpread.textContent = "±" + res.sd.toFixed(0) + " ms";
     ui.stDrift.textContent = Math.abs(res.drift) < 6 ? "dead on"
       : Math.abs(res.drift).toFixed(0) + " ms " + (res.drift > 0 ? "late" : "early");
@@ -857,7 +925,9 @@ function stepKey(){ return S.lesson.setId + ":" + S.lesson.step; }
 function startLesson(id){
   S.lesson.setId = id; S.lesson.step = 0; S.lesson.active = true;
   ui.lessonResult.textContent = "";
-  loadStep(); closeDrawer(); closeSidebar();
+  // Rebase the clock too: without this the new step inherits the old bar
+  // count and cycle length, so it grades and fails before a note is played.
+  loadStep(); restartIfPlaying(); closeDrawer(); closeSidebar();
 }
 function loadStep(){
   const st = lessonStep(); if (!st) return;
@@ -917,9 +987,13 @@ function renderLesson(){
   ui.lessonNote.textContent = st.note || "";
   ui.lessonDots.textContent = "";
   set.steps.forEach((s, i) => {
-    const d = document.createElement("span");
+    const d = document.createElement("button");
+    d.type = "button";
     d.className = "lstep" + (i === S.lesson.step ? " cur" : "") + (S.progress[set.id+":"+i] ? " done" : "");
-    d.title = (PATTERNS.byId[s.pattern] || {}).name || "";
+    const nm = (PATTERNS.byId[s.pattern] || {}).name || "";
+    d.title = nm;
+    d.setAttribute("aria-label", "Step " + (i+1) + ", " + nm +
+      (S.progress[set.id+":"+i] ? ", passed" : "") + (i === S.lesson.step ? ", current" : ""));
     d.onclick = () => { S.lesson.step = i; ui.lessonResult.textContent = ""; loadStep(); restartIfPlaying(); };
     ui.lessonDots.appendChild(d);
   });
@@ -1106,6 +1180,7 @@ function updateLimbRow(){
 }
 
 function rebuild(){
+  idleDrawn = false;
   buildNav(); buildLessonNav(); buildTopbar(); buildSounds();
   if (MIDI.on) setTimeout(buildMidiRows, 0);
   buildGrid(); buildKit(); buildWheel(); buildBalls(); buildComposite(); buildNotation();
@@ -1113,9 +1188,18 @@ function rebuild(){
 }
 
 /* ---- drawer + sidebar ---- */
-function openDrawer(){ ui.drawer.classList.add("open"); ui.scrim.classList.add("open"); ui.drawer.setAttribute("aria-hidden","false"); }
-function closeDrawer(){ ui.drawer.classList.remove("open"); ui.scrim.classList.remove("open"); ui.drawer.setAttribute("aria-hidden","true"); }
-function closeSidebar(){ ui.sidebar.classList.remove("open"); }
+function openDrawer(){ ui.drawer.classList.add("open"); ui.scrim.classList.add("open");
+  ui.drawer.setAttribute("aria-hidden","false"); ui.drawer.removeAttribute("inert");
+  ui.drawerClose.focus(); }
+function closeDrawer(){ ui.drawer.classList.remove("open"); ui.scrim.classList.remove("open");
+  ui.drawer.setAttribute("aria-hidden","true"); ui.drawer.setAttribute("inert",""); }
+function closeSidebar(){ ui.sidebar.classList.remove("open"); syncSidebarInert(); }
+/* Off-canvas panels must leave the tab order, or keyboard users land on
+   controls they cannot see. */
+function syncSidebarInert(){
+  const off = NARROW.matches && !ui.sidebar.classList.contains("open");
+  if (off) ui.sidebar.setAttribute("inert", ""); else ui.sidebar.removeAttribute("inert");
+}
 
 /* ---- wiring ---- */
 ui.play.onclick = () => { S.playing ? stop() : play(); };
@@ -1183,7 +1267,7 @@ ui.lessonExit.onclick = () => { exitLessonIfBrowsing(); rebuild(); };
 ui.setupBtn.onclick = openDrawer;
 ui.drawerClose.onclick = closeDrawer;
 ui.scrim.onclick = () => { closeDrawer(); closeSidebar(); };
-ui.menuBtn.onclick = () => { ui.sidebar.classList.toggle("open"); ui.scrim.classList.toggle("open"); };
+ui.menuBtn.onclick = () => { ui.sidebar.classList.toggle("open"); ui.scrim.classList.toggle("open"); syncSidebarInert(); };
 
 let exAudio = null;
 ui.exPlay.onclick = () => {
@@ -1196,9 +1280,13 @@ ui.exPlay.onclick = () => {
 };
 
 document.addEventListener("keydown", e => {
-  if (e.repeat || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.key === "Escape") { closeDrawer(); closeSidebar(); endTour(); return; }
+  if (e.repeat) return;
+  // Never steal a key from something the user has focused: Space must still
+  // press the focused button, and the arrows must still move a slider.
+  if (e.target.closest("input,select,textarea,button,a,[contenteditable]")) return;
   const k = e.key.toLowerCase();
-  if (e.key === "Escape") { closeDrawer(); closeSidebar(); return; }
+  if (S.keyTriggers === false && "fjb".includes(k)) return;
   if (e.code === "Space") { e.preventDefault(); S.playing ? stop() : play(); }
   else if (k === "f") { e.preventDefault(); strike({limb:"L"}, inputTime(e.timeStamp), "keyboard"); }
   else if (k === "j") { e.preventDefault(); strike({limb:"R"}, inputTime(e.timeStamp), "keyboard"); }
@@ -1297,7 +1385,7 @@ function showTour(i){
   ui.tourStep.textContent = (i+1) + " of " + TOUR.length;
   ui.tourBack.style.visibility = i === 0 ? "hidden" : "";
   ui.tourNext.textContent = i === TOUR.length - 1 ? "Finish" : "Next";
-  ui.tour.classList.add("on"); ui.tour.setAttribute("aria-hidden","false");
+  ui.tour.classList.add("on"); ui.tour.setAttribute("aria-hidden","false"); ui.tour.removeAttribute("inert");
   const put = () => place(t, step.side, ui.tourCard, ui.tourRing, ui.tourPath);
   requestAnimationFrame(put);
   // Re-measure once the sidebar slide and any scroll have settled.
@@ -1306,6 +1394,7 @@ function showTour(i){
 function endTour(){
   tourAt = -1;
   ui.tour.classList.remove("on"); ui.tour.setAttribute("aria-hidden","true");
+  ui.tour.setAttribute("inert",""); clearTimeout(showTour._t);
   closeSidebar();
   try { localStorage.setItem(STORE + ".seen", "1"); } catch (e) {}
   updateCoach();
@@ -1334,18 +1423,19 @@ function nextAction(){
                   : "Play along with <b>" + on.map(v => LIMB_KEY[v]).join(", ") + "</b>, or connect a kit in Setup." };
   return null;
 }
+function hideCoach(){ ui.coach.classList.remove("on"); ui.coach.setAttribute("aria-hidden","true"); }
 function updateCoach(){
   const a = nextAction();
-  if (!a) { ui.coach.classList.remove("on"); return; }
+  if (!a) { hideCoach(); return; }
   const t = document.querySelector(a.sel);
-  if (!t || !t.offsetParent) { ui.coach.classList.remove("on"); return; }
+  if (!t || !t.offsetParent) { hideCoach(); return; }
   const key = a.sel + a.text;
   ui.coachText.innerHTML = a.text;
   ui.coach.classList.add("on"); ui.coach.setAttribute("aria-hidden","false");
   place(t, a.side, ui.coachTip, ui.coachRing, ui.coachPath);
   coachKey = key;
 }
-ui.coachHide.onclick = () => { coachOff = true; ui.coach.classList.remove("on"); };
+ui.coachHide.onclick = () => { coachOff = true; hideCoach(); };
 setInterval(updateCoach, 700);
 
 /* ============================================================
@@ -1355,25 +1445,32 @@ setInterval(updateCoach, 700);
    The count switch and swap move out of the cramped top bar into the stage.
    ============================================================ */
 const NARROW = matchMedia("(max-width: 860px)");
+const CALM = matchMedia("(prefers-reduced-motion: reduce)");
 function applyLayout(){
   if (NARROW.matches) {
     if (ui.feel.parentNode !== ui.mobileCtl) ui.mobileCtl.appendChild(ui.feel);
     if (ui.swap.parentNode !== ui.mobileCtl) ui.mobileCtl.appendChild(ui.swap);
     if (ui.padWrap.parentNode !== ui.thumbBar) ui.thumbBar.appendChild(ui.padWrap);
   } else {
-    if (ui.feel.parentNode !== ui.topactions) ui.topactions.insertBefore(ui.feel, ui.swap);
+    // Order matters: swap has to be back in place before feel can be
+    // inserted relative to it, or insertBefore throws and the pads are
+    // left stranded inside the hidden mobile bar.
     if (ui.swap.parentNode !== ui.topactions) ui.topactions.insertBefore(ui.swap, ui.guideBtn);
+    if (ui.feel.parentNode !== ui.topactions) ui.topactions.insertBefore(ui.feel, ui.swap);
     if (ui.padWrap.parentNode !== ui.padHome) ui.padHome.insertBefore(ui.padWrap, ui.padHome.firstChild);
   }
   ui.mobileCtl.style.display = NARROW.matches ? "" : "none";
 }
-NARROW.addEventListener("change", () => { applyLayout(); if (tourAt >= 0) showTour(tourAt); else updateCoach(); });
+NARROW.addEventListener("change", () => { applyLayout(); syncSidebarInert();
+  if (tourAt >= 0) showTour(tourAt); else updateCoach(); });
 
 /* ---- boot ---- */
 load();
 ui.bpm.value = S.bpm; ui.bpmVal.textContent = S.bpm;
 setPlayIcon(false);
-applyLayout();
-rebuild(); setShow({}); requestAnimationFrame(frame);
+ui.drawer.setAttribute("inert",""); ui.tour.setAttribute("inert","");
+applyLayout(); syncSidebarInert();
+requestAnimationFrame(frame);        // start first: a throw below must not kill it
+rebuild(); setShow({});
 let seen = false; try { seen = !!localStorage.getItem(STORE + ".seen"); } catch (e) {}
 if (!seen) setTimeout(() => showTour(0), 600); else updateCoach();

@@ -64,7 +64,7 @@ window.LESSONS = {
         { pattern:"rd-2", bpm:64, bars:4, minScore:68, limbs:["R"],
           note:"Notes on the and of 2 and the and of 4." },
         { pattern:"rd-3", bpm:64, bars:4, minScore:68, limbs:["R"],
-          note:"A dotted quarter pushes the third note off the beat." },
+          note:"The second note lands on the and of 2, off the beat. Count it out loud first." },
         { pattern:"rd-4", bpm:60, bars:4, minScore:65, limbs:["R","F"],
           note:"Sixteenths mixed with longer values." },
         { pattern:"rd-5", bpm:60, bars:4, minScore:65, limbs:["R","F"],
@@ -85,7 +85,7 @@ window.LESSONS = {
         { pattern:"odd-78-223", bpm:120, bars:8, minScore:68, limbs:["R","L"],
           note:"Seven eight as two plus two plus three. Count the eighths." },
         { pattern:"odd-78-223", bpm:120, bars:8, minScore:70, limbs:["R","L","F"],
-          note:"Add the foot on the group starts." },
+          note:"Add the foot on the first and last group." },
         { pattern:"odd-74", bpm:84, bars:8, minScore:68, limbs:["R","L","F"],
           note:"Seven four. Long bars, easy to lose count." }
       ]

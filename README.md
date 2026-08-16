@@ -139,9 +139,13 @@ genuinely reads instead of watching lights; **Everything** brings them back.
 - **Limbs** — three blocks that flash on each hit, meant to be caught peripherally
   while playing
 - **Kit** — the drums drawn from the drummer's seat: snare closest and centre-left,
-  kick beyond it, hi-hat out to the left, floor tom and ride to the right. Each piece
-  lights in its limb's colour as it is struck, and pieces not assigned to a limb stay
-  dimmed so the shape of the kit still reads
+  kick beyond it, hi-hat out to the left, floor tom and ride to the right. Two things
+  are shown at once and they mean different things: a drum **lights in its limb's
+  colour** when the exercise wants it, and a **red dot appears in its centre** when you
+  actually hit it. Every drum can show the dot, including ones this exercise never
+  uses, so you can tap around your pads before you start and confirm each one answers
+  on the right drum. Limb is also carried by outline — right solid, left dashed, foot
+  dotted — and by a letter beside the label, so the view still works without colour
 - **Wheel** — three rings with a spoke per subdivision, showing where beats fall
   around the bar
 - **Balls** — bouncing between consecutive onsets, so it works for uneven rhythms too

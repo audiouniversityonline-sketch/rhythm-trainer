@@ -6,14 +6,14 @@
 <title>Rhythm Trainer</title>
 <meta name="description" content="Learn rhythm, odd time, polyrhythms and reading — playable with your own kit over USB.">
 <meta name="theme-color" content="#0a0b0e">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body>
 
 <div class="app">
 
   <!-- ============ SIDEBAR ============ -->
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar" id="sidebar" aria-label="Library and lessons">
     <div class="brand">
       <div class="mark">RT</div>
       <div>
@@ -21,13 +21,13 @@
         <span>with <a href="https://instagram.com/ethedrummer" target="_blank" rel="noopener">Ernesto</a></span>
       </div>
     </div>
-    <nav class="nav">
+    <nav class="nav" aria-label="Rhythm library">
       <div class="navsec">
-        <p class="eyebrow">Library</p>
+        <h2 class="eyebrow">Library</h2>
         <div id="navLibrary"></div>
       </div>
       <div class="navsec">
-        <p class="eyebrow">Lessons</p>
+        <h2 class="eyebrow">Lessons</h2>
         <div id="navLessons"></div>
       </div>
     </nav>
@@ -54,13 +54,13 @@
       <div class="topactions" id="topactions">
         <div class="seg" id="feel"></div>
         <button class="btn ghost sm" id="swap" aria-pressed="false">Swap hands</button>
-        <button class="btn ghost sm" id="guideBtn">
+        <button class="btn ghost sm" id="guideBtn" aria-label="Guide">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="8" cy="8" r="6.4"/><path d="M6.2 6.1a1.9 1.9 0 113.1 1.5c-.7.5-1.3.8-1.3 1.6" stroke-linecap="round"/>
             <circle cx="8" cy="11.6" r=".8" fill="currentColor" stroke="none"/></svg>
           <span class="btxt">Guide</span>
         </button>
-        <button class="btn ghost" id="setupBtn">
+        <button class="btn ghost" id="setupBtn" aria-label="Setup">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
             <circle cx="8" cy="8" r="2.2"/>
             <path d="M8 1.6v1.8M8 12.6v1.8M14.4 8h-1.8M3.4 8H1.6M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8L3.5 3.5" stroke-linecap="round"/></svg>
@@ -89,12 +89,12 @@
 
         <div class="cards">
           <section class="card twothird" id="panelKit">
-            <div class="cardhead"><p class="eyebrow">Your kit</p><span class="hint" id="kitnote"></span></div>
+            <div class="cardhead"><h2 class="eyebrow">Your kit</h2><span class="hint" id="kitnote"></span></div>
             <div class="cardbody"><svg id="kit" viewBox="0 0 420 262" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card third" id="panelLimbs">
-            <div class="cardhead"><p class="eyebrow">Limbs</p></div>
+            <div class="cardhead"><h2 class="eyebrow">Limbs</h2></div>
             <div class="cardbody">
               <div class="limbs">
                 <div class="limb" id="limbL"><div class="n" id="limbLnum">3</div><div class="who">left hand</div><div class="snd" id="limbLsnd">snare</div></div>
@@ -105,42 +105,42 @@
           </section>
 
           <section class="card half" id="panelWheel">
-            <div class="cardhead"><p class="eyebrow">Cycle</p><span class="hint" id="wheelnote"></span></div>
+            <div class="cardhead"><h2 class="eyebrow">Cycle</h2><span class="hint" id="wheelnote"></span></div>
             <div class="cardbody"><svg id="wheel" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card half" id="panelBalls">
-            <div class="cardhead"><p class="eyebrow">Bounce</p></div>
+            <div class="cardhead"><h2 class="eyebrow">Bounce</h2></div>
             <div class="cardbody"><svg id="balls" viewBox="0 0 320 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card" id="panelGrid">
-            <div class="cardhead"><p class="eyebrow">Subdivision grid</p><span class="hint" id="gridnote"></span></div>
+            <div class="cardhead"><h2 class="eyebrow">Subdivision grid</h2><span class="hint" id="gridnote"></span></div>
             <div class="cardbody tight scrollx"><svg id="grid" viewBox="0 0 1000 300" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card" id="panelComp">
-            <div class="cardhead"><p class="eyebrow">Composite</p><span class="hint">what your hands actually play</span></div>
+            <div class="cardhead"><h2 class="eyebrow">Composite</h2><span class="hint">what your hands actually play</span></div>
             <div class="cardbody tight scrollx"><svg id="comp" viewBox="0 0 1000 110" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card" id="panelNotation">
-            <div class="cardhead"><p class="eyebrow">Notation</p><span class="hint" id="notationNote"></span></div>
+            <div class="cardhead"><h2 class="eyebrow">Notation</h2><span class="hint" id="notationNote"></span></div>
             <div class="cardbody tight scrollx"><svg id="staff" viewBox="0 0 1000 230" aria-hidden="true"></svg></div>
           </section>
         </div>
       </main>
 
       <!-- ============ RAIL ============ -->
-      <aside class="rail" id="rail">
+      <aside class="rail" id="rail" aria-label="Feedback">
 
         <div class="railcard" id="lessonPanel" style="display:none">
-          <div class="cardhead"><p class="eyebrow" id="lessonTitle">Lesson</p><span class="hint" id="lessonProgress"></span></div>
+          <div class="cardhead"><h2 class="eyebrow" id="lessonTitle">Lesson</h2><span class="hint" id="lessonProgress"></span></div>
           <div class="cardbody">
             <p class="lnote" id="lessonStep"></p>
             <div class="lsteps" id="lessonDots"></div>
             <p class="lnote" id="lessonNote"></p>
-            <p class="lresult" id="lessonResult"></p>
+            <p class="lresult" id="lessonResult" role="status" aria-live="polite"></p>
             <div class="drow" style="margin-top:12px">
               <button class="btn sm" id="lessonNext">Next step</button>
               <button class="btn ghost sm" id="lessonExit">Leave</button>
@@ -149,10 +149,10 @@
         </div>
 
         <div class="railcard">
-          <div class="cardhead"><p class="eyebrow">Timing</p>
+          <div class="cardhead"><h2 class="eyebrow">Timing</h2>
             <button class="btn ghost sm hint" id="resetTaps" style="margin-left:auto">Reset</button></div>
           <div class="cardbody">
-            <div class="scoreblock">
+            <div class="scoreblock" role="status" aria-live="polite">
               <span class="big num" id="stScore">—</span>
               <span class="grade" id="stGrade">Play along to begin</span>
             </div>
@@ -168,12 +168,12 @@
         </div>
 
         <div class="railcard">
-          <div class="cardhead"><p class="eyebrow">Your hits</p><span class="hint" id="limbCount"></span></div>
+          <div class="cardhead"><h2 class="eyebrow">Your hits</h2><span class="hint" id="limbCount"></span></div>
           <div class="cardbody" id="padHome">
             <div class="pads" id="padWrap">
-              <div class="pad" id="padL"></div>
-              <div class="pad" id="padR"></div>
-              <div class="pad" id="padF"></div>
+              <button type="button" class="pad" id="padL"></button>
+              <button type="button" class="pad" id="padR"></button>
+              <button type="button" class="pad" id="padF"></button>
             </div>
             <p class="eyebrow" style="margin:16px 0 9px">Graded limbs</p>
             <div class="limbtoggles" id="limbRow">
@@ -209,14 +209,14 @@
         <button class="chip" id="mF" aria-pressed="true"><span class="swatch"></span><span class="label"></span></button>
         <button class="chip" id="mM" aria-pressed="true"><span class="swatch"></span><span class="label">Click</span></button>
       </div>
-      <div class="barsblock"><b class="num" id="barCount">—</b><span>bars</span></div>
+      <div class="barsblock"><b class="num" id="barCount" aria-live="off">—</b><span>bars</span></div>
     </footer>
   </div>
 </div>
 
 <!-- ============ SETUP DRAWER ============ -->
 <div class="scrim" id="scrim"></div>
-<aside class="drawer" id="drawer" aria-hidden="true">
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Setup">
   <div class="drawerhead">
     <h2>Setup</h2>
     <button class="iconbtn" id="drawerClose" style="margin-left:auto" aria-label="Close">
@@ -227,24 +227,24 @@
   <div class="drawerbody">
 
     <div class="dsec">
-      <p class="eyebrow">Kit assignment</p>
+      <h2 class="eyebrow">Kit assignment</h2>
       <div class="drow"><span class="dlabel">Right hand</span><select id="soundR"></select></div>
       <div class="drow"><span class="dlabel">Left hand</span><select id="soundL"></select></div>
       <div class="drow"><span class="dlabel">Foot</span><select id="soundF"></select></div>
     </div>
 
     <div class="dsec">
-      <p class="eyebrow">Play your own kit <span class="pill" id="midiPill">not connected</span></p>
+      <h2 class="eyebrow">Play your own kit <span class="pill" id="midiPill">not connected</span></h2>
       <div class="drow">
         <button class="btn" id="midiEnable">Connect MIDI</button>
       </div>
       <p class="note" id="midiStatus">Works with any USB electronic drum kit, trigger module, or MIDI controller.</p>
       <div id="midiMap" style="display:none;margin-top:14px"></div>
-      <p class="note" id="midiNote"></p>
+      <p class="note" id="midiNote" role="status" aria-live="polite"></p>
     </div>
 
     <div class="dsec">
-      <p class="eyebrow">Input calibration</p>
+      <h2 class="eyebrow">Input calibration</h2>
       <div class="drow">
         <div class="caltarget" id="calTarget">Press calibrate, then play along with the click for a few bars</div>
         <div style="display:flex;flex-direction:column;gap:8px">
@@ -252,11 +252,11 @@
           <button class="btn ghost sm" id="calClear">Clear</button>
         </div>
       </div>
-      <p class="note" id="calResult"></p>
+      <p class="note" id="calResult" role="status" aria-live="polite"></p>
     </div>
 
     <div class="dsec">
-      <p class="eyebrow">Practice options</p>
+      <h2 class="eyebrow">Practice options</h2>
       <div class="drow">
         <button class="chip" id="trainer" aria-pressed="false"><span class="swatch"></span><span class="label">Tempo trainer, +2 every 4 bars</span></button>
       </div>
@@ -269,13 +269,13 @@
     </div>
 
     <div class="dsec">
-      <p class="eyebrow">Hear Ernesto play it</p>
+      <h2 class="eyebrow">Hear Ernesto play it</h2>
       <div class="drow"><button class="btn" id="exPlay" disabled>Play example</button></div>
       <p class="note" id="exNote"></p>
     </div>
 
     <div class="dsec">
-      <p class="eyebrow">Keyboard</p>
+      <h2 class="eyebrow">Keyboard</h2>
       <p class="note">
         <code>space</code> play &nbsp; <code>↑</code> <code>↓</code> tempo &nbsp;
         <code>F</code> left hand &nbsp; <code>J</code> right hand &nbsp; <code>B</code> foot
@@ -286,7 +286,7 @@
 </aside>
 
 <!-- ============ GUIDED TOUR ============ -->
-<div class="tour" id="tour" aria-hidden="true">
+<div class="tour" id="tour" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Guided tour">
   <div class="tourRing" id="tourRing"></div>
   <svg class="tourArrow" id="tourArrow">
     <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -318,9 +318,9 @@
   </div>
 </div>
 
-<script src="patterns.js?v=13"></script>
-<script src="notation.js?v=13"></script>
-<script src="lessons.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="patterns.js?v=17"></script>
+<script src="notation.js?v=17"></script>
+<script src="lessons.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

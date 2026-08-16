@@ -24,13 +24,25 @@ window.NOTATION = (function () {
      key: cymbals above, toms descending, snare in the middle, kick at the
      bottom. */
   const STAFF = {
-    crash1:{ y:-1.9, x:1 }, crash2:{ y:-1.9, x:1 }, hihat:{ y:-1.0, x:1 },
-    ride:{ y:0, x:1 },      tom1:{ y:0.5 },        tom2:{ y:1.0 },
-    snare:{ y:1.5 },        rim:{ y:1.5, x:1 },    floor:{ y:2.5 },
-    kick:{ y:3.5 },         click:{ y:1.5 }
+    crash1:{ y:-1.0, x:1, ledger:1 }, crash2:{ y:-1.5, x:1, ledger:1 },
+    hihat:{ y:-0.5, x:1 }, ride:{ y:0, x:1 },
+    tom1:{ y:0.5 },        tom2:{ y:1.0 },
+    snare:{ y:1.5 },       rim:{ y:1.5, x:1 },   floor:{ y:2.5 },
+    kick:{ y:3.5 },        click:{ y:1.5 },
+    hihatfoot:{ y:4.5, x:1, ledger:1 }        // pedal hi-hat sits below the staff
   };
-  function placeOf(piece){ return STAFF[piece] || STAFF.snare; }
-  function yOf(piece){ return TOP + placeOf(piece).y * SP; }
+  function placeOf(piece, limb){
+    if (limb === "F" && piece === "hihat") return STAFF.hihatfoot;
+    return STAFF[piece] || STAFF.snare;
+  }
+  function yOf(piece, limb){ return TOP + placeOf(piece, limb).y * SP; }
+  /* Anything off the staff needs a line to be read against. */
+  function ledger(svg, x, piece, limb){
+    if (!placeOf(piece, limb).ledger) return;
+    const y = yOf(piece, limb);
+    svg.appendChild(el("line", { x1:x-13, y1:y, x2:x+13, y2:y,
+      stroke:"#3a424d", "stroke-width":1 }));
+  }
 
   /* Horizontal position of a subdivision box. Both renderers use this so the
      staff, the grid above it, and the scrolling playhead all agree. */
@@ -164,8 +176,9 @@ window.NOTATION = (function () {
   /* Rests for the stems-up voice sit in the upper half of the staff, rests
      for the stems-down voice in the lower half, so the two voices stay
      legible when both are resting at once. */
-  function rest(svg, x, v, u, col, up) {
+  function rest(svg, x, v, u, col, up, dotted) {
     const b = beamsFor(v, u), y = TOP + 2 * SP + (up ? -SP * 0.9 : SP * 1.1);
+    if (dotted) svg.appendChild(el("circle", { cx:x+12, cy:y-3, r:2.2, fill:col }));
     if (v >= u)          { svg.appendChild(el("rect", { x:x-7, y:y-6, width:14, height:5, fill:col })); return; }
     if (v >= u/2)        { svg.appendChild(el("rect", { x:x-7, y:y-1, width:14, height:5, fill:col })); return; }
     if (b === 0) {
@@ -217,7 +230,8 @@ window.NOTATION = (function () {
               const cols = []; let lowY = TOP - 3 * SP;
               [[1, o.upper], [2, o.lower]].forEach(([bit, limb]) => {
                 if (!(handMap[e.pos] & bit)) return;
-                const pc = o.piece(limb, e.pos), pl = placeOf(pc), py = yOf(pc);
+                const pc = o.piece(limb, e.pos), pl = placeOf(pc, limb), py = yOf(pc, limb);
+                ledger(svg, x, pc, limb);
                 notehead(svg, x, py, pl.x ? "x" : "o", o.col[limb], hollowV);
                 if (pt.dot) dot(svg, x, py, o.col[limb]);
                 cols.push(o.col[limb]);
@@ -225,11 +239,12 @@ window.NOTATION = (function () {
               });
               const stemCol = cols[0] || o.col[o.upper];
               if (pt.v < u) svg.appendChild(el("line", { x1:x+6.5, y1:lowY-1, x2:x+6.5, y2:STEM_UP, stroke:stemCol, "stroke-width":2 }));
-              if (bm > 0) beamable.push({ x, bm, g: seg.group, col: stemCol, tup: P.beatTuplet && !seg.whole });
+              beamable.push({ x, bm, g: seg.group, col: stemCol, tup: P.beatTuplet && !seg.whole });
               lastX = x; lastY = lowY; lastCol = stemCol;
             } else {
-              const pc = o.piece("F", e.pos), py = yOf(pc);
-              notehead(svg, x, py, placeOf(pc).x ? "x" : "o", o.col.F, hollowV);
+              const pc = o.piece("F", e.pos), py = yOf(pc, "F");
+              ledger(svg, x, pc, "F");
+              notehead(svg, x, py, placeOf(pc, "F").x ? "x" : "o", o.col.F, hollowV);
               if (pt.v < u) svg.appendChild(el("line", { x1:x-6.5, y1:py+1, x2:x-6.5, y2:py+42, stroke:o.col.F, "stroke-width":2 }));
               if (pt.dot) dot(svg, x, py, o.col.F);
               if (bm > 0) flag(svg, x-6.5, py+42, bm, o.col.F, false);
@@ -252,7 +267,7 @@ window.NOTATION = (function () {
         let inner = 0;
         decompose(wl, u).forEach(pt => {
           rest(svg, X(seg.pos + inner * seg.len / Math.max(wl, 0.0001)), pt.v, u,
-               up ? "#8a929b" : "#767e87", up);
+               up ? "#8a929b" : "#767e87", up, pt.dot);
           inner += (pt.dot ? pt.v * 1.5 : pt.v);
         });
       });
@@ -261,7 +276,21 @@ window.NOTATION = (function () {
     function drawBeams(list) {
       const byGroup = new Map();
       list.forEach(n => { const k = n.g.a; if (!byGroup.has(k)) byGroup.set(k, []); byGroup.get(k).push(n); });
-      byGroup.forEach(notes => {
+      byGroup.forEach(all => {
+        // The tuplet bracket belongs to the whole beat, so it is decided
+        // from every note in the group and drawn before any beaming choice.
+        if (all.some(n => n.tup)) {
+          const bx1 = all[0].x, bx2 = all[all.length - 1].x, bmid = (bx1 + bx2) / 2;
+          const span = Math.max(26, bx2 - bx1);
+          const x1b = bmid - span / 2, x2b = bmid + span / 2;
+          svg.appendChild(el("path", { d:"M"+x1b+" "+(TUP_Y+7)+" L"+x1b+" "+TUP_Y+" L"+(bmid-13)+" "+TUP_Y,
+            fill:"none", stroke:"#98a1ac", "stroke-width":1.4 }));
+          svg.appendChild(el("path", { d:"M"+x2b+" "+(TUP_Y+7)+" L"+x2b+" "+TUP_Y+" L"+(bmid+13)+" "+TUP_Y,
+            fill:"none", stroke:"#98a1ac", "stroke-width":1.4 }));
+          svg.appendChild(txt(bmid, TUP_Y+5, String(P.beatTuplet),
+            { fill:"#eef0f3", "font-size":14, "font-weight":600 }));
+        }
+        const notes = all.filter(n => n.bm > 0);
         if (notes.length < 2) {
           notes.forEach(n => flag(svg, n.x + 6.5, STEM_UP, n.bm, n.col, true));
           return;
@@ -282,14 +311,6 @@ window.NOTATION = (function () {
           notes.forEach(n => { if (n.bm >= lvl) run.push(n); else flush(); });
           flush();
         }
-        if (notes.some(n => n.tup)) {
-          const mid = (x1 + x2) / 2;
-          svg.appendChild(el("path", { d:"M"+x1+" "+(TUP_Y+7)+" L"+x1+" "+TUP_Y+" L"+(mid-13)+" "+TUP_Y,
-            fill:"none", stroke:"#98a1ac", "stroke-width":1.4 }));
-          svg.appendChild(el("path", { d:"M"+x2+" "+(TUP_Y+7)+" L"+x2+" "+TUP_Y+" L"+(mid+13)+" "+TUP_Y,
-            fill:"none", stroke:"#98a1ac", "stroke-width":1.4 }));
-          svg.appendChild(txt(mid, TUP_Y+5, String(P.beatTuplet), { fill:"#eef0f3", "font-size":14, "font-weight":600 }));
-        }
       });
     }
   }
@@ -302,7 +323,7 @@ window.NOTATION = (function () {
     function draw(voiceKey, place) {
       const onsets = P.voices[voiceKey] || [];
       const home = o.piece(voiceKey, onsets[0] === undefined ? 0 : onsets[0]);
-      const n = onsets.length, y = yOf(home), col = o.col[voiceKey], kind = placeOf(home).x ? "x" : "o";
+      const n = onsets.length, y = yOf(home, voiceKey), col = o.col[voiceKey], kind = placeOf(home, voiceKey).x ? "x" : "o";
       const isOther = voiceKey === otherKey;
       const tup = isOther && info.bracket, dotted = isOther && info.dotted, hollow = isOther && info.hollow;
       const down = place === "kk";
@@ -351,7 +372,7 @@ window.NOTATION = (function () {
 
     [o.upper, o.lower, "F"].forEach(v => {
       if (!(P.voices[v] || []).length) return;
-      svg.appendChild(txt(L-66, yOf(o.piece(v, P.voices[v][0])) + 4, o.name[v],
+      svg.appendChild(txt(L-66, yOf(o.piece(v, P.voices[v][0]), v) + 4, o.name[v],
         { fill:"#454d57", "font-size":11, "text-anchor":"end" }));
     });
 
