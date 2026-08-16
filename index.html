@@ -6,7 +6,7 @@
 <title>Rhythm Trainer</title>
 <meta name="description" content="Learn rhythm, odd time, polyrhythms and reading — playable with your own kit over USB.">
 <meta name="theme-color" content="#0a0b0e">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 
@@ -51,20 +51,20 @@
           <small id="patSub">12 boxes</small>
         </div>
       </div>
-      <div class="topactions">
+      <div class="topactions" id="topactions">
         <div class="seg" id="feel"></div>
         <button class="btn ghost sm" id="swap" aria-pressed="false">Swap hands</button>
         <button class="btn ghost sm" id="guideBtn">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="8" cy="8" r="6.4"/><path d="M6.2 6.1a1.9 1.9 0 113.1 1.5c-.7.5-1.3.8-1.3 1.6" stroke-linecap="round"/>
             <circle cx="8" cy="11.6" r=".8" fill="currentColor" stroke="none"/></svg>
-          Guide
+          <span class="btxt">Guide</span>
         </button>
         <button class="btn ghost" id="setupBtn">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
             <circle cx="8" cy="8" r="2.2"/>
             <path d="M8 1.6v1.8M8 12.6v1.8M14.4 8h-1.8M3.4 8H1.6M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8L3.5 3.5" stroke-linecap="round"/></svg>
-          Setup
+          <span class="btxt">Setup</span>
         </button>
       </div>
     </header>
@@ -73,7 +73,8 @@
 
       <!-- ============ STAGE ============ -->
       <main class="stage" id="stage">
-        <div class="viewbar" id="viewRow">
+        <div class="mobilectl" id="mobileCtl"></div>
+        <div class="viewwrap"><div class="viewbar" id="viewRow">
           <button class="vt" data-view="kit">Kit</button>
           <button class="vt" data-view="limbs">Limbs</button>
           <button class="vt" data-view="wheel">Wheel</button>
@@ -84,7 +85,7 @@
           <span class="vsep"></span>
           <button class="vt" data-preset="reading">Reading only</button>
           <button class="vt" data-preset="all">Everything</button>
-        </div>
+        </div></div>
 
         <div class="cards">
           <section class="card twothird" id="panelKit">
@@ -115,17 +116,17 @@
 
           <section class="card" id="panelGrid">
             <div class="cardhead"><p class="eyebrow">Subdivision grid</p><span class="hint" id="gridnote"></span></div>
-            <div class="cardbody tight"><svg id="grid" viewBox="0 0 1000 300" aria-hidden="true"></svg></div>
+            <div class="cardbody tight scrollx"><svg id="grid" viewBox="0 0 1000 300" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card" id="panelComp">
             <div class="cardhead"><p class="eyebrow">Composite</p><span class="hint">what your hands actually play</span></div>
-            <div class="cardbody tight"><svg id="comp" viewBox="0 0 1000 110" aria-hidden="true"></svg></div>
+            <div class="cardbody tight scrollx"><svg id="comp" viewBox="0 0 1000 110" aria-hidden="true"></svg></div>
           </section>
 
           <section class="card" id="panelNotation">
             <div class="cardhead"><p class="eyebrow">Notation</p><span class="hint" id="notationNote"></span></div>
-            <div class="cardbody tight"><svg id="staff" viewBox="0 0 1000 230" aria-hidden="true"></svg></div>
+            <div class="cardbody tight scrollx"><svg id="staff" viewBox="0 0 1000 230" aria-hidden="true"></svg></div>
           </section>
         </div>
       </main>
@@ -168,8 +169,8 @@
 
         <div class="railcard">
           <div class="cardhead"><p class="eyebrow">Your hits</p><span class="hint" id="limbCount"></span></div>
-          <div class="cardbody">
-            <div class="pads">
+          <div class="cardbody" id="padHome">
+            <div class="pads" id="padWrap">
               <div class="pad" id="padL"></div>
               <div class="pad" id="padR"></div>
               <div class="pad" id="padF"></div>
@@ -186,6 +187,8 @@
 
       </aside>
     </div>
+
+    <div class="thumbBar" id="thumbBar"></div>
 
     <!-- ============ TRANSPORT ============ -->
     <footer class="transport">
@@ -315,9 +318,9 @@
   </div>
 </div>
 
-<script src="patterns.js?v=4"></script>
-<script src="notation.js?v=4"></script>
-<script src="lessons.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="patterns.js?v=8"></script>
+<script src="notation.js?v=8"></script>
+<script src="lessons.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

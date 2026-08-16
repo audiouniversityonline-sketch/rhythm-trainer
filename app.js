@@ -937,7 +937,7 @@ const ui = {};
  "scatter barTrack stScore stGrade stSpread stDrift resetTaps scoreNote padR padL padF limbRow limbCount " +
  "lessonPanel lessonTitle lessonProgress lessonStep lessonDots lessonNote lessonResult lessonNext lessonExit " +
  "play playIcon bpm bpmVal bpmUp bpmDown mR mL mF mM barCount phasebar " +
- "tour tourRing tourPath tourCard tourTitle tourBody tourStep tourSkip tourBack tourNext guideBtn coach coachRing coachPath coachTip coachText coachHide scrim drawer drawerClose soundR soundL soundF midiEnable midiStatus midiMap midiPill midiNote " +
+ "topactions mobileCtl thumbBar padWrap padHome tour tourRing tourPath tourCard tourTitle tourBody tourStep tourSkip tourBack tourNext guideBtn coach coachRing coachPath coachTip coachText coachHide scrim drawer drawerClose soundR soundL soundF midiEnable midiStatus midiMap midiPill midiNote " +
  "calTarget calStart calClear calResult " +
  "trainer countin haptics exPlay exNote").split(/\s+/).forEach(id => ui[id] = document.getElementById(id));
 
@@ -1222,6 +1222,9 @@ let tourAt = -1;
 function place(target, side, card, ring, path){
   const r = target.getBoundingClientRect(), pad = 8;
   const vw = innerWidth, vh = innerHeight;
+  // On a phone there is no room beside anything, so flip to whichever of
+  // above/below has space. Keeps the card off the thing it points at.
+  if (NARROW.matches) side = (r.top + r.height/2) > vh * 0.52 ? "top" : "bottom";
   ring.style.left = (r.left - pad) + "px"; ring.style.top = (r.top - pad) + "px";
   ring.style.width = (r.width + pad*2) + "px"; ring.style.height = (r.height + pad*2) + "px";
 
@@ -1315,10 +1318,32 @@ function updateCoach(){
 ui.coachHide.onclick = () => { coachOff = true; ui.coach.classList.remove("on"); };
 setInterval(updateCoach, 700);
 
+/* ============================================================
+   RESPONSIVE LAYOUT
+   On a phone there is no keyboard and no Web MIDI on iOS, so the tap pads
+   are the only way in — they get moved into a fixed bar in the thumb zone.
+   The count switch and swap move out of the cramped top bar into the stage.
+   ============================================================ */
+const NARROW = matchMedia("(max-width: 860px)");
+function applyLayout(){
+  if (NARROW.matches) {
+    if (ui.feel.parentNode !== ui.mobileCtl) ui.mobileCtl.appendChild(ui.feel);
+    if (ui.swap.parentNode !== ui.mobileCtl) ui.mobileCtl.appendChild(ui.swap);
+    if (ui.padWrap.parentNode !== ui.thumbBar) ui.thumbBar.appendChild(ui.padWrap);
+  } else {
+    if (ui.feel.parentNode !== ui.topactions) ui.topactions.insertBefore(ui.feel, ui.swap);
+    if (ui.swap.parentNode !== ui.topactions) ui.topactions.insertBefore(ui.swap, ui.guideBtn);
+    if (ui.padWrap.parentNode !== ui.padHome) ui.padHome.insertBefore(ui.padWrap, ui.padHome.firstChild);
+  }
+  ui.mobileCtl.style.display = NARROW.matches ? "" : "none";
+}
+NARROW.addEventListener("change", () => { applyLayout(); if (tourAt >= 0) showTour(tourAt); else updateCoach(); });
+
 /* ---- boot ---- */
 load();
 ui.bpm.value = S.bpm; ui.bpmVal.textContent = S.bpm;
 setPlayIcon(false);
+applyLayout();
 rebuild(); setShow({}); requestAnimationFrame(frame);
 let seen = false; try { seen = !!localStorage.getItem(STORE + ".seen"); } catch (e) {}
 if (!seen) setTimeout(() => showTour(0), 600); else updateCoach();

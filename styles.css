@@ -31,6 +31,7 @@
 html,body{margin:0;padding:0;height:100%}
 body{
   background:var(--bg); color:var(--tx1); overflow:hidden;
+  overscroll-behavior:none; -webkit-tap-highlight-color:transparent;
   font:400 15px/1.55 ui-sans-serif,-apple-system,"SF Pro Text","Segoe UI Variable Text",
        "Segoe UI",Inter,Roboto,system-ui,sans-serif;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
@@ -46,6 +47,8 @@ svg{display:block;width:100%;height:auto}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px;border:3px solid var(--bg)}
 ::-webkit-scrollbar-thumb:hover{background:var(--line3)}
+
+.thumbBar{display:none}
 
 /* ---- type ---- */
 .eyebrow{font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3);margin:0}
@@ -105,7 +108,7 @@ svg{display:block;width:100%;height:auto}
 .sidefoot{padding:12px 16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--tx4);display:flex;gap:10px;align-items:center}
 
 /* ---- main column ---- */
-.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
 
 .topbar{
   height:var(--top);flex:0 0 auto;display:flex;align-items:center;gap:16px;
@@ -126,7 +129,7 @@ svg{display:block;width:100%;height:auto}
   background:var(--s3);border:1px solid var(--line2);color:var(--tx2);
 }
 .ptitle .meta small{font-size:11.5px;color:var(--tx3)}
-.topactions{margin-left:auto;display:flex;align-items:center;gap:10px}
+.topactions{margin-left:auto;display:flex;align-items:center;gap:10px;flex:0 0 auto}
 
 /* ---- segmented control ---- */
 .seg{display:inline-flex;background:var(--s3);border:1px solid var(--line2);border-radius:var(--r);padding:3px;gap:3px}
@@ -198,6 +201,9 @@ svg{display:block;width:100%;height:auto}
 .cardhead .hint{margin-left:auto;font-size:11.5px;color:var(--tx3);text-align:right}
 .cardbody{padding:16px}
 .cardbody.tight{padding:10px 16px 14px}
+#kit{max-width:600px;margin:0 auto}
+#wheel{max-width:340px;margin:0 auto}
+#balls{max-width:420px;margin:0 auto}
 
 /* limb meters */
 .limbs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -366,19 +372,114 @@ select:hover{border-color:var(--line3)}
   .body{display:block;overflow-y:auto}
 }
 @media (max-width:860px){
-  .app{grid-template-columns:1fr}
+  :root{ --top:54px; --bar:60px }
+
+  .app{grid-template-columns:1fr;overflow-x:hidden}
   .sidebar{
-    position:fixed;inset:0 auto 0 0;width:var(--side);z-index:60;
+    position:fixed;inset:0 auto 0 0;width:min(84vw,282px);z-index:60;
     transform:translateX(-101%);transition:transform .26s var(--ease);box-shadow:var(--sh3);
   }
   .sidebar.open{transform:none}
   #menuBtn{display:grid}
-  .transport{gap:12px;padding:0 14px}
-  .tempoval{min-width:78px}
-  .tempoval b{font-size:26px}
-  input[type=range]{width:92px}
-  .mutes{display:none}
-  .stage{padding:14px}
+
+  /* topbar: menu, title, settings. Everything else moves into the stage. */
+  .topbar{gap:10px;padding:0 12px}
+  .ptitle{flex:1;min-width:0}
+  .ptitle h1{font-size:15.5px}
+  .ptitle .meta small{display:none}
+  .topactions{gap:6px}
+  #guideBtn .btxt,#setupBtn .btxt{display:none}
+  #guideBtn,#setupBtn{padding:9px;gap:0}
+  #guideBtn svg,#setupBtn svg{width:18px;height:18px}
+  #swap{white-space:nowrap}
+
+  /* relocated controls sit above the view chips */
+  .mobilectl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .mobilectl .seg{flex:1}
+  .mobilectl .seg button{flex:1;text-align:center;padding:9px 6px}
+  .mobilectl .seg button small{display:none}
+
+  /* view chips: one swipeable row, never three stacked */
+  .viewbar{
+    flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;
+    scrollbar-width:none;margin:0 -14px 14px;padding:0 14px 2px;
+  }
+  .viewbar::-webkit-scrollbar{display:none}
+  .vt{flex:0 0 auto}
+  .viewwrap{position:relative}
+  .viewwrap::after{
+    content:"";position:absolute;top:0;right:0;bottom:6px;width:34px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,var(--bg));
+  }
+
+  .stage{padding:12px 14px 18px}
+  .cards{gap:11px}
+  .card{border-radius:13px}
+  .cardhead{padding:11px 13px}
+  .cardbody{padding:13px}
+  .cardhead .hint{font-size:10.5px}
+
+  /* wide drawings stay legible and scroll sideways instead of shrinking */
+  .cardbody.scrollx{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .cardbody.scrollx svg{min-width:600px}
+
+  .rail{border-top:1px solid var(--line);padding:14px;gap:11px;display:flex;flex-direction:column}
+  .rail > *{flex:0 0 auto;width:100%}
+  .limb{min-height:100px;padding:14px 8px}
+  .limb .n{font-size:36px}
+  .limb.foot{min-height:66px}
+
+  /* the pads move here: big, fixed, in the thumb zone */
+  .thumbBar{
+    display:block;flex:0 0 auto;background:var(--s1);border-top:1px solid var(--line);
+    padding:9px 12px 0;
+  }
+  .thumbBar .pads{gap:8px}
+  .thumbBar .pad{padding:13px 6px;border-radius:13px}
+  .thumbBar .pad b{font-size:15px}
+  .thumbBar .pad em{font-size:10px}
+  .thumbBar .pad i{display:none}
+
+  .transport{gap:10px;padding:0 12px;padding-bottom:env(safe-area-inset-bottom)}
+  .playbtn{width:46px;height:46px}
+  .playbtn svg{width:18px;height:18px}
+  .tempo{gap:7px;flex:1;min-width:0}
+  .tempoval{min-width:62px}
+  .tempoval b{font-size:23px}
+  .tempoval span{display:none}
+  input[type=range]{flex:1;width:auto;min-width:52px}
+  .stepbtn{width:32px;height:32px;flex:0 0 auto}
+  .tsep,.mutes{display:none}
+  .barsblock{min-width:34px}
+  .barsblock b{font-size:19px}
+  .barsblock span{font-size:9px;letter-spacing:.06em}
+
+  .drawer{width:100vw}
+  .drawerbody{padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+  .dlabel{width:74px}
+  .maprow .who{width:84px;font-size:12.5px}
+  .caltarget{min-width:0}
+  .metrics{grid-template-columns:1fr 1fr}
+  .scoreblock .big{font-size:44px}
+}
+
+@media (max-width:342px){
+  .thumbBar .pad em{display:none}
+  .mobilectl .seg button{font-size:12px}
+}
+
+/* landscape phone: keep the stage usable, shrink the chrome */
+@media (max-height:520px) and (orientation:landscape){
+  :root{ --top:46px; --bar:54px }
+  .thumbBar{padding:6px 12px 0}
+  .thumbBar .pad{padding:8px 6px}
+  .thumbBar .pad em,.thumbBar .pad i{display:none}
+  .limb{min-height:70px}
+  .stage{padding:9px 14px 14px}
+  .mobilectl{margin-bottom:8px}
+  .viewbar{margin-bottom:9px}
+  .cardhead{padding:8px 13px}
+  .cardbody{padding:10px}
 }
 
 /* ============================================================
@@ -419,4 +520,7 @@ select:hover{border-color:var(--line3)}
 .coachTip b{color:var(--ok)}
 .coachX{color:var(--tx3);font-size:17px;line-height:1;padding:0 0 0 4px;flex:0 0 auto}
 .coachX:hover{color:var(--tx1)}
-@media (max-width:860px){ .tourCard{width:270px} .coachTip{max-width:220px} }
+@media (max-width:860px){
+  .tourCard{width:min(88vw,306px)}
+  .coachTip{max-width:min(80vw,260px)}
+}

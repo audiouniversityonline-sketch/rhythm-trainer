@@ -100,8 +100,26 @@ bottom that never moves. Everything you only touch occasionally — kit assignme
 calibration, practice options — lives in the Setup drawer, so the working surface stays
 about the rhythm.
 
-Below 1080px the rail drops beneath the stage; below 860px the sidebar becomes a
-slide-over and the transport keeps only play, tempo, and bars.
+### On a phone or tablet
+
+The layout reshapes rather than just shrinking. Below 1080px the rail drops beneath the
+stage. Below 860px:
+
+- The sidebar becomes a slide-over behind the menu button, and Guide and Setup collapse
+  to icons so the pattern name has room.
+- The count switch and swap move out of the cramped top bar into the stage.
+- The view chips become one swipeable row instead of stacking three deep, with a fade
+  at the edge so it reads as scrollable.
+- **The tap pads move into a fixed bar in the thumb zone**, directly above the
+  transport. On a phone there is no keyboard and iOS has no Web MIDI, so those pads are
+  the only way in — they should never be something you scroll to find.
+- The grid, composite and notation scroll sideways inside their cards rather than
+  shrinking to unreadable, so the note heads and count numbers stay legible.
+- Guided-tour and nudge cards flip above or below their target instead of beside it,
+  and the transport respects the iPhone home-indicator inset.
+
+A landscape phone tightens the chrome further. A tablet at 768px is the sweet spot for
+propping on a music stand: full-size kit drawing, big pads, everything in one row.
 
 Colours carry one meaning throughout: amber is the right hand, teal the left, violet the
 foot. Whatever lights up in the kit, the wheel, the grid, the notation, and the timing
