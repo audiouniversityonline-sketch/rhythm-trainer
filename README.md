@@ -115,6 +115,11 @@ stage. Below 860px:
   the only way in — they should never be something you scroll to find.
 - The grid, composite and notation scroll sideways inside their cards rather than
   shrinking to unreadable, so the note heads and count numbers stay legible.
+- **Double-tap zoom is disabled.** Drumming on a touchscreen means tapping the same
+  spot faster than the double-tap threshold, which a browser otherwise reads as "zoom
+  in". `touch-action: manipulation` on the root removes that gesture everywhere while
+  leaving pinch-to-zoom intact, and the pad bar refuses the gesture outright. Rapid taps
+  on ordinary buttons still register normally.
 - Guided-tour and nudge cards flip above or below their target instead of beside it,
   and the transport respects the iPhone home-indicator inset.
 

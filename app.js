@@ -158,6 +158,9 @@ const SYNTH = {
     const g=env(t,a?.2:.12,.028); o.connect(g); g.connect(master); o.start(t); o.stop(t+.04); }
 };
 function hit(name, t, accent){
+  // A note scheduled in the past would throw and take the scheduler down
+  // with it, silently stopping playback. Nudge it to now instead.
+  if (!(t >= ctx.currentTime)) t = ctx.currentTime;
   if (buffers[name]) {
     const s = ctx.createBufferSource(); s.buffer = buffers[name];
     const g = ctx.createGain(); g.gain.value = accent ? 1 : .72;
@@ -1150,6 +1153,20 @@ ui.viewRow.onclick = e => {
 };
 ["R","L","F"].forEach(v => ui["pad"+v].onpointerdown = e => {
   e.preventDefault(); initAudio(); strike({limb:v}, inputTime(e.timeStamp), "keyboard"); });
+
+/* Drumming on a touchscreen means tapping the same spot faster than the
+   double-tap threshold, which iOS reads as "zoom in". touch-action in the
+   stylesheet handles most browsers, but some WebKit builds ignore it, so
+   refuse the gesture outright: swallowing touchend stops the second tap
+   from ever pairing with the first. Pinch-to-zoom is untouched. */
+["padR","padL","padF","thumbBar"].forEach(id => {
+  const n = ui[id]; if (!n) return;
+  n.addEventListener("touchend", e => e.preventDefault(), { passive:false });
+});
+document.addEventListener("dblclick", e => {
+  if (e.target.closest(".pad, .thumbBar, .transport, .chip, .vt, .playbtn")) e.preventDefault();
+}, { passive:false });
+
 ui.limbRow.onclick = e => {
   const b = e.target.closest("[data-limb]"); if (!b) return;
   const v = b.dataset.limb;

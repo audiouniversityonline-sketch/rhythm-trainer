@@ -28,7 +28,11 @@
 }
 
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%}
+html,body{
+  margin:0;padding:0;height:100%;
+  touch-action:manipulation;              /* no double-tap zoom; pinch still works */
+  -webkit-text-size-adjust:100%;
+}
 body{
   background:var(--bg); color:var(--tx1); overflow:hidden;
   overscroll-behavior:none; -webkit-tap-highlight-color:transparent;
@@ -38,7 +42,10 @@ body{
   font-variant-numeric:tabular-nums; text-rendering:optimizeLegibility;
 }
 button,select,input{font:inherit;color:inherit}
-button{background:none;border:0;padding:0;cursor:pointer}
+button{
+  background:none;border:0;padding:0;cursor:pointer;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
 :focus{outline:none}
 :focus-visible{outline:2px solid var(--tx2);outline-offset:2px;border-radius:4px}
 svg{display:block;width:100%;height:auto}
@@ -243,8 +250,9 @@ svg{display:block;width:100%;height:auto}
 .pads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pad{
   border:1.5px solid var(--line2);border-radius:11px;background:var(--s1);
-  padding:13px 6px;text-align:center;-webkit-user-select:none;user-select:none;
-  touch-action:manipulation;transition:opacity .15s;color:var(--tx2);
+  padding:13px 6px;text-align:center;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  touch-action:none;transition:opacity .15s;color:var(--tx2);
 }
 .pad b{display:block;font-size:14px;font-weight:600;color:inherit;line-height:1.2}
 .pad em{display:block;font-style:normal;font-size:10.5px;color:inherit;opacity:.7;margin-top:3px}
@@ -266,6 +274,7 @@ svg{display:block;width:100%;height:auto}
    ============================================================ */
 .transport{
   height:var(--bar);flex:0 0 auto;display:flex;align-items:center;gap:20px;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;
   padding:0 22px;border-top:1px solid var(--line);
   background:rgba(16,18,22,.86);backdrop-filter:blur(20px) saturate(140%);
 }
@@ -433,6 +442,7 @@ select:hover{border-color:var(--line3)}
   .thumbBar{
     display:block;flex:0 0 auto;background:var(--s1);border-top:1px solid var(--line);
     padding:9px 12px 0;
+    touch-action:none;-webkit-user-select:none;user-select:none;
   }
   .thumbBar .pads{gap:8px}
   .thumbBar .pad{padding:13px 6px;border-radius:13px}
