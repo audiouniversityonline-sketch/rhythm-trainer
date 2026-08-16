@@ -1236,6 +1236,11 @@ function place(target, side, card, ring, path){
   else                        { x = r.left + r.width/2 - cw/2; y = r.bottom + gap; }
   x = Math.max(14, Math.min(vw - cw - 14, x));
   y = Math.max(14, Math.min(vh - ch - 14, y));
+  // Never sit on top of the fixed pad bar — it is what the student taps.
+  if (NARROW.matches && ui.thumbBar.offsetParent && target !== ui.thumbBar) {
+    const tb = ui.thumbBar.getBoundingClientRect();
+    if (y + ch > tb.top - 8 && r.top < tb.top) y = Math.max(14, tb.top - ch - 12);
+  }
   card.style.left = x + "px"; card.style.top = y + "px";
 
   // Arrow from the card's edge to the ring's edge. Both ends are found by
@@ -1265,6 +1270,10 @@ function showTour(i){
   if (step.before) step.before();
   const t = document.querySelector(step.sel);
   if (!t) return showTour(i + 1);
+  // On a phone the library and lessons live behind the menu, so open the
+  // drawer for those steps and shut it again for the rest — otherwise the
+  // arrow points at something that is not on screen.
+  if (NARROW.matches) ui.sidebar.classList.toggle("open", !!t.closest(".sidebar"));
   t.scrollIntoView({ block:"nearest", behavior:"smooth" });
   ui.tourTitle.textContent = step.title;
   ui.tourBody.innerHTML = step.body;
@@ -1272,11 +1281,15 @@ function showTour(i){
   ui.tourBack.style.visibility = i === 0 ? "hidden" : "";
   ui.tourNext.textContent = i === TOUR.length - 1 ? "Finish" : "Next";
   ui.tour.classList.add("on"); ui.tour.setAttribute("aria-hidden","false");
-  requestAnimationFrame(() => place(t, step.side, ui.tourCard, ui.tourRing, ui.tourPath));
+  const put = () => place(t, step.side, ui.tourCard, ui.tourRing, ui.tourPath);
+  requestAnimationFrame(put);
+  // Re-measure once the sidebar slide and any scroll have settled.
+  clearTimeout(showTour._t); showTour._t = setTimeout(put, 320);
 }
 function endTour(){
   tourAt = -1;
   ui.tour.classList.remove("on"); ui.tour.setAttribute("aria-hidden","true");
+  closeSidebar();
   try { localStorage.setItem(STORE + ".seen", "1"); } catch (e) {}
   updateCoach();
 }
