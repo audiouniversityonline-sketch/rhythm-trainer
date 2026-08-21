@@ -96,13 +96,32 @@ of the same groove and trim to one; record a groove plus a fill and keep all thr
 ### Playing it in
 
 All nine surfaces record: hi-hat, snare, kick, rack tom 1, rack tom 2, floor tom,
-crash 1, crash 2, and ride. A kit or controller sends them over MIDI through the same
-per-drum mapping used everywhere else.
+crash 1, crash 2, and ride. **Each one gets its own track.** Two drums landing on the
+same beat — a crash on top of the hi-hat, a ride and a kick together — are kept
+separate, and the grid shows a row per drum rather than one row per limb.
 
-There is also a **nine-pad palette** in the recorder, so someone with no hardware at all
-can still build a beat with the full kit — click the pads, or use number keys `1`–`9`.
+There is also a **nine-pad palette**, so someone with no hardware at all can build a
+beat with the full kit: click the pads or use number keys `1`–`9`. Tapping a pad when
+not recording opens an empty track for that drum, so you can click hits in by hand.
 Every pad lights when its drum is struck, whichever way the hit arrived, so it doubles
 as a check that your kit is mapped correctly.
+
+**MIDI channels are honoured.** A mapping entry is either a bare note number, matching
+on any channel, or `channel/note` for kits that put each pad on its own channel with
+overlapping note numbers. Learn picks the right one for you: it binds by channel only
+when that note already belongs to another drum, and stays channel-agnostic otherwise,
+which survives a kit being reconfigured. The last hit received is echoed back with both
+its note and its channel, so an unmapped pad is easy to identify.
+
+### Limbs are worked out when you save
+
+Tracks are per drum, but the rest of the app is per limb, so the recorder assigns limbs
+at save time. Each drum has a limb you can change on its row. Where two drums assigned
+to the same limb land on the same beat, the second is moved to the free hand — that is
+how a crash on beat one ends up in the left hand while the right keeps the hi-hat going.
+If something genuinely cannot be played, because both hands and the foot are already
+busy on that beat, the recorder says so and names the drum rather than dropping it
+quietly.
 
 ### After the take
 

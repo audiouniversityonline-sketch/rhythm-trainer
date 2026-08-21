@@ -49,6 +49,7 @@ window.REC = (function () {
     raw:[],                          // {t, piece} of the linear take
     over:{},                         // manual edits, "limb|box" -> piece or null
     limbFor:{},
+    rows:{},                         // drums given a track with no hits yet
     startTime:0, nextBeat:0, timer:null, endTimer:null,
     takeBars:0, trimFrom:0, trimBars:1, loopPass:0
   };
@@ -66,17 +67,29 @@ window.REC = (function () {
   function limbOf(piece) { return R.limbFor[piece] || HOME_LIMB[piece] || "R"; }
 
   /* ---- the take, folded into the trimmed window -------------------- */
+  /* Keyed by DRUM, not by limb. A kit sends nine independent surfaces and
+     each gets its own track, so a crash and a hi-hat landing together no
+     longer overwrite one another and the grid can show every drum played.
+     Limbs are worked out later, when the pattern is built. */
   function derive() {
     const out = {}, total = totalBoxes();
     R.raw.forEach(h => {
       const box = Math.round((h.t - trimStart()) / barDur() * boxesPerBar());
       if (box < 0 || box >= total) return;         // outside the trim
-      out[limbOf(h.piece) + "|" + box] = h.piece;
+      out[h.piece + "|" + box] = true;
     });
     Object.keys(R.over).forEach(k => {
-      if (R.over[k] === null) delete out[k]; else out[k] = R.over[k];
+      if (R.over[k] === null) delete out[k]; else out[k] = true;
     });
     return out;
+  }
+  /* Every drum with a track: anything played, plus anything the student
+     opened a row for from the palette. */
+  function usedDrums() {
+    const set = {};
+    Object.keys(derive()).forEach(k => { set[k.split("|")[0]] = 1; });
+    Object.keys(R.rows).forEach(d => { set[d] = 1; });
+    return PALETTE.map(d => d.id).filter(d => set[d]);
   }
   function hitsPerBar() {
     const per = [];
@@ -105,8 +118,8 @@ window.REC = (function () {
       // fold onto the trimmed loop, wherever in the loop we are
       let box = Math.round((t - trimStart()) / barDur() * boxesPerBar());
       box = ((box % totalBoxes()) + totalBoxes()) % totalBoxes();
-      R.over[limbOf(piece) + "|" + box] = piece;
-    } else return true;
+      R.over[piece + "|" + box] = true;
+    } else { R.rows[piece] = 1; drawGrid(); syncAll(); return true; }
     drawGrid(); syncAll();
     return true;
   }
@@ -133,8 +146,8 @@ window.REC = (function () {
       for (let i = 0; i < beatsPerBar() * R.trimBars; i++)
         api.hit("click", t0 + i * per, i % beatsPerBar() === 0);
       Object.keys(hits).forEach(k => {
-        const box = +k.split("|")[1];
-        api.hit(hits[k], t0 + box / totalBoxes() * loopDur(), false);
+        const [piece, box] = k.split("|");
+        api.hit(piece, t0 + (+box) / totalBoxes() * loopDur(), false);
       });
       R.loopPass++;
     }
@@ -246,59 +259,60 @@ window.REC = (function () {
 
   /* ---- grid preview ------------------------------------------------ */
   const LIMBS = ["R","L","F"];
+  /* One row per drum, in kit order, with a colour tab showing which limb
+     is set to play it. */
   function drawGrid() {
     const svg = ui.grid; if (!svg) return;
     svg.textContent = "";
-    const hits = derive(), N = totalBoxes();
-    const W = 1000, L = 96, gap = N > 48 ? 1 : N > 24 ? 2 : N > 12 ? 3 : 5;
+    const hits = derive(), drums = usedDrums(), N = totalBoxes();
+    const W = 1000, L = 128, gap = N > 48 ? 1 : N > 24 ? 2 : N > 12 ? 3 : 5;
     const cw = (W - L - (N - 1) * gap) / N;
-    const rowY = [16, 68, 120], rowH = 44;
+    const rowH = 30, pitch = 34, top = 12;
 
-    LIMBS.forEach((v, k) => {
-      svg.appendChild(text(L - 12, rowY[k] + 26, api.LIMB_LABEL[v].split(" ")[0],
-        { fill:api.COL[v], "font-size":13, "font-weight":600, "text-anchor":"end" }));
+    if (!drums.length) {
+      svg.appendChild(text(W / 2, 60, "Nothing recorded yet",
+        { fill:"#7b8794", "font-size":13 }));
+      svg.setAttribute("viewBox", "0 0 1000 110");
+      return;
+    }
+
+    drums.forEach((d, k) => {
+      const y = top + k * pitch, col = api.COL[limbOf(d)];
+      svg.appendChild(el("rect", { x:0, y:y, width:4, height:rowH, rx:2, fill:col }));
+      svg.appendChild(text(L - 12, y + rowH / 2 + 4, api.KIT_LABEL[d],
+        { fill:"#eef0f3", "font-size":12, "text-anchor":"end" }));
       for (let i = 0; i < N; i++) {
-        const piece = hits[v + "|" + i];
+        const on = hits[d + "|" + i];
         const onBeat = i % R.sub === 0, onBar = i % boxesPerBar() === 0;
-        const cell = el("rect", { x:L + i * (cw + gap), y:rowY[k], width:cw, height:rowH, rx:3,
-          fill: piece ? api.COL[v] : (onBar ? "#252a33" : onBeat ? "#20242b" : "#171a20"),
-          stroke: piece ? "none" : "#262b33",
-          "fill-opacity": piece ? .82 : 1, cursor:"pointer" });
-        cell.addEventListener("click", () => toggle(v, i, hits));
+        const cell = el("rect", { x:L + i * (cw + gap), y:y, width:cw, height:rowH, rx:3,
+          fill: on ? col : (onBar ? "#252a33" : onBeat ? "#20242b" : "#171a20"),
+          stroke: on ? "none" : "#262b33",
+          "fill-opacity": on ? .85 : 1, cursor:"pointer" });
+        cell.addEventListener("click", () => toggle(d, i));
         svg.appendChild(cell);
-        if (piece && cw > 17) svg.appendChild(text(L + i * (cw + gap) + cw / 2, rowY[k] + 28,
-          api.KIT_LABEL[piece].slice(0, 2).toUpperCase(),
-          { fill:"#0a0b0e", "font-size":10, "font-weight":700 }));
       }
     });
+
+    const countY = top + drums.length * pitch + 14;
     for (let i = 0; i < beatsPerBar() * R.trimBars; i++) {
       const box = i * R.sub, first = i % beatsPerBar() === 0;
-      svg.appendChild(text(L + box * (cw + gap) + cw / 2, 180,
+      svg.appendChild(text(L + box * (cw + gap) + cw / 2, countY,
         String(i % beatsPerBar() + 1),
         { fill: first ? "#eef0f3" : "#7b8794", "font-size":12, "font-weight": first ? 600 : 400 }));
     }
-    ui.head = el("rect", { x:L, y:12, width:cw, height:156, rx:4,
+    ui.head = el("rect", { x:L, y:top - 4, width:cw, height:drums.length * pitch, rx:4,
       fill:"none", stroke:"#ff3b47", "stroke-width":2, opacity:0 });
     svg.appendChild(ui.head);
     ui.head._L = L; ui.head._cw = cw; ui.head._gap = gap;
-    svg.setAttribute("viewBox", "0 0 1000 196");
+    svg.setAttribute("viewBox", "0 0 1000 " + (countY + 16));
   }
   function text(x, y, s, a) {
     const e = el("text", Object.assign({ x, y, "font-family":"inherit", "text-anchor":"middle" }, a));
     e.textContent = s; return e;
   }
-  function toggle(limb, box, hits) {
-    const key = limb + "|" + box;
-    if (hits[key]) R.over[key] = null;
-    else {
-      const counts = {};
-      Object.keys(hits).forEach(k => {
-        if (k.split("|")[0] !== limb) return;
-        counts[hits[k]] = (counts[hits[k]] || 0) + 1;
-      });
-      const best = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
-      R.over[key] = best || DEFAULT_PIECE[limb];
-    }
+  function toggle(piece, box) {
+    const key = piece + "|" + box;
+    R.over[key] = derive()[key] ? null : true;
     drawGrid(); syncAll();
   }
 
@@ -322,14 +336,13 @@ window.REC = (function () {
 
   /* ---- drum to limb ------------------------------------------------ */
   function buildLimbRows() {
-    const hits = derive();
-    const used = [...new Set(Object.values(hits))];
+    const drums = usedDrums();
     ui.limbs.textContent = "";
-    if (!used.length) {
+    if (!drums.length) {
       ui.limbs.innerHTML = '<span class="note" style="margin:0">Nothing in the selection yet.</span>';
       return;
     }
-    used.forEach(piece => {
+    drums.forEach(piece => {
       const wrap = document.createElement("div");
       wrap.className = "reclimb";
       wrap.innerHTML = '<span class="recdrum">' + api.KIT_LABEL[piece] + "</span>";
@@ -341,31 +354,62 @@ window.REC = (function () {
         b.style.borderColor = on ? api.COL[v] : "";
         b.innerHTML = '<span class="swatch" style="background:' + (on ? api.COL[v] : "") + '"></span>' +
           api.LIMB_LABEL[v];
-        b.onclick = () => {
-          const was = limbOf(piece);
-          R.limbFor[piece] = v;
-          // carry any manual edits on this drum over to the new limb
-          Object.keys(R.over).forEach(k => {
-            if (R.over[k] !== piece) return;
-            const box = k.split("|")[1];
-            if (k.split("|")[0] === was) { delete R.over[k]; R.over[v + "|" + box] = piece; }
-          });
-          buildPalette(); drawGrid(); syncAll();
-        };
+        b.onclick = () => { R.limbFor[piece] = v; buildPalette(); drawGrid(); syncAll(); };
         wrap.appendChild(b);
       });
+      const x = document.createElement("button");
+      x.type = "button"; x.className = "btn ghost sm";
+      x.textContent = "Remove"; x.style.marginLeft = "auto";
+      x.onclick = () => {
+        Object.keys(R.over).forEach(k => { if (k.split("|")[0] === piece) delete R.over[k]; });
+        Object.keys(derive()).forEach(k => { if (k.split("|")[0] === piece) R.over[k] = null; });
+        delete R.rows[piece];
+        drawGrid(); syncAll();
+      };
+      wrap.appendChild(x);
       ui.limbs.appendChild(wrap);
     });
+    const { dropped } = assign();
+    const bad = [...new Set(dropped)];
+    ui.warn.innerHTML = bad.length
+      ? "<b style='color:var(--warn)'>" + bad.join(" and ") + "</b> " +
+        (bad.length === 1 ? "lands" : "land") + " on a beat where both hands and the " +
+        "foot are already busy, so " + (bad.length === 1 ? "it cannot" : "they cannot") +
+        " be played as written. Move a drum to another limb, or remove that hit."
+      : "";
   }
 
   /* ---- build ------------------------------------------------------- */
-  function build(name) {
+  /* Turn drum tracks into the limb-based pattern the rest of the app uses.
+     One hand cannot strike two drums at once, so when two drums assigned to
+     the same limb land on the same box, the second is moved to a free hand.
+     Anything that genuinely cannot be played is reported rather than
+     silently dropped. */
+  function assign() {
     const hits = derive();
-    const voices = { R:[], L:[], F:[] }, marks = { R:{}, L:{}, F:{} };
+    const byBox = {};
     Object.keys(hits).forEach(k => {
-      const [limb, box] = k.split("|");
-      voices[limb].push(+box); marks[limb][+box] = hits[k];
+      const [p, b] = k.split("|");
+      (byBox[b] = byBox[b] || []).push(p);
     });
+    const voices = { R:[], L:[], F:[] }, marks = { R:{}, L:{}, F:{} }, dropped = [];
+    Object.keys(byBox).map(Number).sort((a, b) => a - b).forEach(box => {
+      const taken = {};
+      // feet first: they never contend with the hands
+      const order = byBox[box].slice().sort((a, b) =>
+        (limbOf(a) === "F" ? 0 : 1) - (limbOf(b) === "F" ? 0 : 1));
+      order.forEach(p => {
+        let v = limbOf(p);
+        if (taken[v]) v = ["R","L","F"].find(x => !taken[x] && x !== "F") || null;
+        if (!v) { dropped.push(api.KIT_LABEL[p]); return; }
+        taken[v] = 1; voices[v].push(box); marks[v][box] = p;
+      });
+    });
+    return { voices, marks, dropped };
+  }
+
+  function build(name) {
+    const { voices, marks } = assign();
     LIMBS.forEach(v => voices[v].sort((a, b) => a - b));
     const home = {};
     LIMBS.forEach(v => {
@@ -389,7 +433,8 @@ window.REC = (function () {
   /* ---- panel state -------------------------------------------------- */
   function syncAll() {
     const has = R.raw.length > 0 || Object.keys(R.over).length > 0;
-    const hits = derive(), n = Object.keys(hits).length;
+    const n = Object.keys(derive()).length;
+    const tracks = usedDrums().length;
 
     ui.record.textContent = R.mode === "record" ? "Stop" : (has ? "Record again" : "Record");
     ui.record.classList.toggle("primary", R.mode !== "record");
@@ -405,7 +450,8 @@ window.REC = (function () {
     ui.save.disabled = !n;
 
     ui.trimWrap.style.display = (has && R.mode !== "record") ? "" : "none";
-    ui.count.textContent = n ? n + (n === 1 ? " hit" : " hits") : "";
+    ui.count.textContent = n ? n + (n === 1 ? " hit" : " hits") +
+      (tracks ? " on " + tracks + (tracks === 1 ? " drum" : " drums") : "") : "";
     if (has && R.mode !== "record") buildTrim();
 
     ui.hint.innerHTML =
@@ -416,7 +462,7 @@ window.REC = (function () {
       : R.mode === "preview"
         ? "Looping the selection you have chosen."
       : has
-        ? "Pick the bars you want, then tap any box to fix a hit. <b>Overdub</b> loops the selection so you can add another limb."
+        ? "Pick the bars you want, then tap any box to fix a hit. Tap a drum above to open a track for it. <b>Overdub</b> loops the selection so you can add more."
         : "Press record, wait for the count-in, and play. Use your kit, a controller, or the pads above.";
 
     ui.len.textContent = R.trimBars + (R.trimBars === 1 ? " bar" : " bars") + " · " +
@@ -452,7 +498,8 @@ window.REC = (function () {
   }
   function reset() {
     stopClock(); R.mode = "idle";
-    R.raw = []; R.over = {}; R.limbFor = {}; R.takeBars = 0; R.trimFrom = 0; R.trimBars = 1;
+    R.raw = []; R.over = {}; R.limbFor = {}; R.rows = {};
+    R.takeBars = 0; R.trimFrom = 0; R.trimBars = 1;
     ui.name.value = ""; ui.bar.textContent = "";
     buildPalette(); drawGrid(); syncAll();
   }
@@ -464,7 +511,7 @@ window.REC = (function () {
       modal:id("recModal"), scrim:id("recScrim"), close:id("recClose"), grid:id("recGrid"),
       record:id("recRecord"), overdub:id("recOverdub"), preview:id("recPreview"),
       clear:id("recClear"), save:id("recSave"), cancel:id("recCancel"), name:id("recName"),
-      hint:id("recHint"), limbs:id("recLimbs"), bar:id("recBar"), count:id("recCount"),
+      hint:id("recHint"), limbs:id("recLimbs"), warn:id("recWarn"), bar:id("recBar"), count:id("recCount"),
       meter:id("recMeter"), res:id("recRes"), bpm:id("recBpm"), bpmVal:id("recBpmVal"),
       countIn:id("recCountIn"), len:id("recLen"), palette:id("recPalette"),
       trimWrap:id("recTrimWrap"), trim:id("recTrim"),

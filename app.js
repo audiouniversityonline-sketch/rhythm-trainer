@@ -115,7 +115,8 @@ function load(){
     if (d.sound) ["R","L","F"].forEach(v => { if (KIT_LABEL[d.sound[v]]) S.sound[v] = d.sound[v]; });
     if (d.limbs) ["R","L","F"].forEach(v => { if (v in d.limbs) S.limbs[v] = d.limbs[v] ? 1 : 0; });
     if (d.midiMap) PIECES.forEach(p => {
-      if (Array.isArray(d.midiMap[p])) MIDI.map[p] = d.midiMap[p].filter(Number.isInteger); });
+      if (Array.isArray(d.midiMap[p])) MIDI.map[p] = d.midiMap[p]
+        .filter(x => Number.isInteger(x) || /^\d+\/\d+$/.test(x)); });
     if (Number.isFinite(+d.bpm)) S.bpm = Math.max(30, Math.min(220, Math.round(+d.bpm)));
   } catch (e) {}
 }
@@ -306,12 +307,21 @@ function buildGrid(){
       { fill:COL[v], "font-size":17, "font-weight":600, "text-anchor":"end" }));
     svg.appendChild(txt(L-13, rowY[k]+40, LIMB_LABEL[v].split(" ")[0],
       { fill:C.tx4, "font-size":9.5, "text-anchor":"end" }));
+    const home = limbPiece(v);
     for (let i = 0; i < N; i++) {
       const isOn = on.has(i);
       const r = el("rect", { x:L+i*(cw+gap), y:rowY[k], width:cw, height:rowH, rx:5,
         fill: isOn ? COL[v] : C.s3, stroke: isOn ? "none" : C.line2,
         "fill-opacity": isOn ? .55 : 1 });
       svg.appendChild(r); gridCells[v].push({ el:r, on:isOn });
+      // Where a limb leaves its home drum, name the surface — otherwise a
+      // fill round the toms is just three identical coloured rows.
+      if (!isOn || cw < 17) continue;
+      const piece = PATTERNS.pieceAt(P, v, i, S.sound[v]);
+      if (piece === home) continue;
+      svg.appendChild(txt(L+i*(cw+gap)+cw/2, rowY[k]+rowH/2+4,
+        KIT_LABEL[piece].slice(0,2).toUpperCase(),
+        { fill:"#0a0b0e", "font-size":10, "font-weight":700 }));
     }
   });
 
@@ -652,7 +662,7 @@ const GM = {
   hihat:[42,44,46,22,26], ride:[51,59,53], crash1:[49,55], crash2:[57,52],
   snare:[38,40], rim:[37],    tom1:[48,50], tom2:[45,47], floor:[41,43], kick:[35,36]
 };
-const MIDI = { access:null, map:{}, learn:null, on:false };
+const MIDI = { access:null, map:{}, learn:null, on:false, lastCh:null };
 PIECES.forEach(p => { MIDI.map[p] = (GM[p] || []).slice(); });
 
 async function enableMidi(){
@@ -682,23 +692,35 @@ function bindInputs(){
     ? "Connected to <b>" + names.join(", ") + "</b>. Hit a pad to check it lights up below, then calibrate."
     : "<b style='color:var(--warn)'>No MIDI device found.</b> Plug the kit in over USB, power it on, then reconnect.";
 }
+/* A mapping entry is either a bare note number, which matches on any
+   channel, or "channel/note" for kits that put each pad on its own
+   channel with overlapping note numbers. */
+function midiHas(list, ch, note){
+  return list.some(x => typeof x === "number" ? x === note : x === ch + "/" + note);
+}
 function onMidi(e){
   const [status, note, vel] = e.data;
   if ((status & 0xf0) !== 0x90 || !vel) return;
+  const ch = (status & 0x0f) + 1;
+  MIDI.lastCh = ch;
   if (MIDI.learn) {
-    PIECES.forEach(p => { MIDI.map[p] = MIDI.map[p].filter(n => n !== note); });
-    MIDI.map[MIDI.learn] = [note];
+    // If this bare note already belongs to another drum, bind by channel so
+    // both can coexist; otherwise stay channel-agnostic, which is sturdier.
+    const clash = PIECES.some(p => p !== MIDI.learn && MIDI.map[p].some(x => x === note));
+    PIECES.forEach(p => { MIDI.map[p] = MIDI.map[p].filter(x => x !== ch + "/" + note); });
+    if (!clash) PIECES.forEach(p => { MIDI.map[p] = MIDI.map[p].filter(x => x !== note); });
+    MIDI.map[MIDI.learn] = [clash ? ch + "/" + note : note];
     MIDI.learn = null; buildMidiRows(); return;
   }
-  for (const p of PIECES) if (MIDI.map[p].indexOf(note) !== -1) {
+  for (const p of PIECES) if (midiHas(MIDI.map[p], ch, note)) {
     flashDot(p);
     if (REC.isOpen()) { REC.onHit(p, inputTime(e.timeStamp)); return; }
     strike({ piece:p }, inputTime(e.timeStamp), "midi");
-    ui.midiNote.innerHTML = "Last hit: <b>" + KIT_LABEL[p] + "</b>, note " + note + ".";
+    ui.midiNote.innerHTML = "Last hit: <b>" + KIT_LABEL[p] + "</b>, note " + note + " on channel " + ch + ".";
     return;
   }
-  ui.midiNote.innerHTML = "<b style='color:var(--warn)'>Note " + note + " is not mapped.</b> " +
-    "Press <b>Learn</b> next to the drum you just hit, then hit it again.";
+  ui.midiNote.innerHTML = "<b style='color:var(--warn)'>Note " + note + " on channel " + ch +
+    " is not mapped.</b> Press <b>Learn</b> next to the drum you just hit, then hit it again.";
 }
 function flashDot(p){
   const d = ui["dot_" + p]; if (!d) return;
@@ -724,7 +746,8 @@ function buildMidiRows(){
     ui["notes_" + p] = row.querySelector(".notes");
   });
   PIECES.filter(p => p !== "rim").forEach(p => {
-    ui["notes_" + p].textContent = MIDI.learn === p ? "hit that pad now…" : MIDI.map[p].join(", ") || "unmapped";
+    ui["notes_" + p].textContent = MIDI.learn === p ? "hit that pad now…"
+      : (MIDI.map[p].map(x => typeof x === "number" ? x : "ch" + x).join(", ") || "unmapped");
     ui["notes_" + p].style.color = MIDI.learn === p ? C.ok : "";
   });
   if (!MIDI.learn) ui.midiNote.innerHTML =
