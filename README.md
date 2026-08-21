@@ -355,6 +355,11 @@ changes — see [`audio/README.md`](audio/README.md).
 All timing comes from the Web Audio clock via a lookahead scheduler, and the animation
 reads `audioContext.currentTime` every frame, so audio and visuals never drift apart.
 
+The scheduler commits only about 150 ms of audio at a time, note by note, rather than a
+bar at a time. That is what makes **stop actually stop**: anything already handed to the
+audio hardware is cut on the spot, and mute and tempo changes take effect within a
+fraction of a second instead of waiting for the next measure.
+
 ## Notation, and what it does not do
 
 The engraver computes note values from onset spacing, adds dots and ties, fills gaps

@@ -146,17 +146,31 @@ function env(t, peak, decay){
   g.gain.exponentialRampToValueAtTime(.0001, t + decay);
   return g;
 }
-function noiseSrc(t, dur){ const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.start(t); s.stop(t+dur); return s; }
+/* Every scheduled voice is remembered until it finishes, so pressing stop
+   can silence what is already queued in the audio hardware instead of
+   letting the rest of the bar play out. */
+let liveNodes = [];
+function keep(n){
+  liveNodes.push(n);
+  n.onended = () => { const i = liveNodes.indexOf(n); if (i >= 0) liveNodes.splice(i, 1); };
+  return n;
+}
+function silenceAll(){
+  const t = ctx ? ctx.currentTime : 0;
+  liveNodes.forEach(n => { try { n.stop(t); } catch (e) {} });
+  liveNodes = [];
+}
+function noiseSrc(t, dur){ const s = keep(ctx.createBufferSource()); s.buffer = noiseBuf; s.start(t); s.stop(t+dur); return s; }
 function crash(t, accent, hp, decay){
   const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp;
   const g = env(t, accent ? .3 : .22, decay);
   noiseSrc(t, decay + .1).connect(f); f.connect(g); g.connect(master);
-  const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = hp / 4;
+  const o = keep(ctx.createOscillator()); o.type = "triangle"; o.frequency.value = hp / 4;
   const og = env(t, .07, decay * .5); o.connect(og); og.connect(master);
   o.start(t); o.stop(t + decay * .6);
 }
 function tom(t, accent, f0, f1){
-  const o = ctx.createOscillator(); o.type = "sine";
+  const o = keep(ctx.createOscillator()); o.type = "sine";
   o.frequency.setValueAtTime(f0, t);
   o.frequency.exponentialRampToValueAtTime(f1, t + .2);
   const g = env(t, accent ? .62 : .48, .34);
@@ -169,25 +183,25 @@ const SYNTH = {
     const g=env(t,a?.35:.22,.05); noiseSrc(t,.08).connect(f); f.connect(g); g.connect(master); },
   snare(t,a){ const f=ctx.createBiquadFilter(); f.type="bandpass"; f.frequency.value=1900; f.Q.value=.9;
     const g=env(t,a?.5:.36,.13); noiseSrc(t,.2).connect(f); f.connect(g); g.connect(master);
-    const o=ctx.createOscillator(); o.type="triangle"; o.frequency.value=185;
+    const o=keep(ctx.createOscillator()); o.type="triangle"; o.frequency.value=185;
     const og=env(t,.16,.06); o.connect(og); og.connect(master); o.start(t); o.stop(t+.09); },
-  kick(t,a){ const o=ctx.createOscillator(); o.type="sine";
+  kick(t,a){ const o=keep(ctx.createOscillator()); o.type="sine";
     o.frequency.setValueAtTime(135,t); o.frequency.exponentialRampToValueAtTime(44,t+.11);
     const g=env(t,a?.9:.7,.24); o.connect(g); g.connect(master); o.start(t); o.stop(t+.28); },
-  rim(t,a){ const o=ctx.createOscillator(); o.type="square"; o.frequency.value=420;
+  rim(t,a){ const o=keep(ctx.createOscillator()); o.type="square"; o.frequency.value=420;
     const g=env(t,a?.26:.19,.035); o.connect(g); g.connect(master); o.start(t); o.stop(t+.05);
     const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=3000;
     const g2=env(t,.18,.03); noiseSrc(t,.04).connect(f); f.connect(g2); g2.connect(master); },
   ride(t,a){ const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=5200;
     const g=env(t,a?.24:.16,.55); noiseSrc(t,.6).connect(f); f.connect(g); g.connect(master);
-    const o=ctx.createOscillator(); o.type="triangle"; o.frequency.value=880;
+    const o=keep(ctx.createOscillator()); o.type="triangle"; o.frequency.value=880;
     const og=env(t,.09,.18); o.connect(og); og.connect(master); o.start(t); o.stop(t+.2); },
   crash1(t,a){ crash(t,a,3400,1.5); },
   crash2(t,a){ crash(t,a,4300,1.25); },
   tom1(t,a){ tom(t,a,300,150); },
   tom2(t,a){ tom(t,a,220,110); },
   floor(t,a){ tom(t,a,150,72); },
-  click(t,a){ const o=ctx.createOscillator(); o.type="square"; o.frequency.value=a?1560:1050;
+  click(t,a){ const o=keep(ctx.createOscillator()); o.type="square"; o.frequency.value=a?1560:1050;
     const g=env(t,a?.2:.12,.028); o.connect(g); g.connect(master); o.start(t); o.stop(t+.04); }
 };
 function hit(name, t, accent){
@@ -195,7 +209,7 @@ function hit(name, t, accent){
   // with it, silently stopping playback. Nudge it to now instead.
   if (!(t >= ctx.currentTime)) t = ctx.currentTime;
   if (buffers[name]) {
-    const s = ctx.createBufferSource(); s.buffer = buffers[name];
+    const s = keep(ctx.createBufferSource()); s.buffer = buffers[name];
     const g = ctx.createGain(); g.gain.value = accent ? 1 : .72;
     s.connect(g); g.connect(master); s.start(t);
   } else SYNTH[name](t, accent);
@@ -213,36 +227,51 @@ function inputTime(stamp){
 /* ============================================================
    CLOCK
    ============================================================ */
-let startTime = 0, cycleDur = 0, nextCycle = 0, pendingBpm = null, timer = null;
+let startTime = 0, cycleDur = 0, nextCycle = 0, nextBox = 0, pendingBpm = null, timer = null;
 let scheduled = [], barsPlayed = 0;
 
-function scheduleCycle(n){
-  const P = AP(), t0 = startTime + n * cycleDur;
+/* Commit only a fraction of a second of audio at a time. Scheduling a whole
+   bar at once meant stop, mute and tempo changes could not take effect until
+   the next bar, because the rest of the measure was already in the hardware. */
+const LOOKAHEAD = 0.15;
+let begunCycle = -1;
+
+function beginCycle(n){
+  const t0 = startTime + n * cycleDur;
   if (pendingBpm !== null) {
     S.bpm = pendingBpm; pendingBpm = null;
-    cycleDur = P.ticks * 60 / S.bpm;
+    cycleDur = AP().ticks * 60 / S.bpm;
     startTime = t0 - n * cycleDur;
     ui.bpmVal.textContent = S.bpm; ui.bpm.value = S.bpm;
   }
-  const box = cycleDur / P.div;
+  if (S.trainer && n > 0 && n % 4 === 0) pendingBpm = Math.min(220, S.bpm + 2);
+}
+
+function scheduler(){
+  if (!S.playing || !ctx) return;
+  const P = AP();
   const sets = { R:new Set(P.voices.R), L:new Set(P.voices.L), F:new Set(P.voices.F) };
-  const ticks = new Set(PATTERNS.tickPositions(P));
-  const accents = new Set(PATTERNS.accentPositions(P));
-  for (let i = 0; i < P.div; i++) {
-    const t = t0 + i * box;
+  const tickSet = new Set(PATTERNS.tickPositions(P));
+  const accSet = new Set(PATTERNS.accentPositions(P));
+  const horizon = ctx.currentTime + LOOKAHEAD;
+  let guard = 0;
+
+  while (guard++ < 512) {
+    if (nextBox === 0 && begunCycle !== nextCycle) { beginCycle(nextCycle); begunCycle = nextCycle; }
+    const N = P.div, boxDur = cycleDur / N;
+    const t = startTime + nextCycle * cycleDur + nextBox * boxDur;
+    if (t >= horizon) break;
+    const i = nextBox;
     ["R","L","F"].forEach(v => {
       if (!sets[v].has(i)) return;
       const piece = PATTERNS.pieceAt(P, v, i, S.sound[v]);
       scheduled.push({ t, voice:v, piece });
       if (!S.mute[v]) hit(piece, t, i === 0);
     });
-    if (!S.mute.M && ticks.has(i)) hit("click", t, accents.has(i));
+    if (!S.mute.M && tickSet.has(i)) hit("click", t, accSet.has(i));
+    nextBox++;
+    if (nextBox >= N) { nextBox = 0; nextCycle++; }
   }
-  if (S.trainer && n > 0 && n % 4 === 0) pendingBpm = Math.min(220, S.bpm + 2);
-}
-function scheduler(){
-  if (!S.playing) return;
-  while (startTime + nextCycle * cycleDur < ctx.currentTime + .25) scheduleCycle(nextCycle++);
   const cut = ctx.currentTime - 1.5;
   while (scheduled.length && scheduled[0].t < cut) scheduled.shift();
 }
@@ -254,7 +283,7 @@ function play(){
     for (let i = 0; i < P.ticks; i++) hit("click", lead + i * beat, i === 0);
     startTime = lead + P.ticks * beat;
   } else startTime = lead;
-  nextCycle = 0; scheduled = []; barsPlayed = 0;
+  nextCycle = 0; nextBox = 0; begunCycle = -1; scheduled = []; barsPlayed = 0;
   taps = []; drawScatter();          // each press of play is a fresh run
   S.lesson.judged = false;
   S.playing = true; idleDrawn = false; setPlayIcon(true);
@@ -263,6 +292,7 @@ function play(){
 function stop(){
   S.playing = false; S.bpm = +ui.bpm.value; pendingBpm = null;
   clearInterval(timer); timer = null; scheduled = [];
+  silenceAll();                       // kill anything already queued
   setPlayIcon(false); ui.barCount.textContent = "—"; save();
 }
 function setPlayIcon(playing){
@@ -1272,7 +1302,7 @@ function openRecorder(){
 }
 REC.init({
   getCtx: () => ctx,
-  initAudio, hit,
+  initAudio, hit, silence: silenceAll,
   COL, KIT_LABEL, LIMB_LABEL,
   onSaved(p){
     PATTERNS.addCustom(p); saveBeats();

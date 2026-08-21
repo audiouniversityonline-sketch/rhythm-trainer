@@ -28,6 +28,7 @@ window.REC = (function () {
     hihat:"R", ride:"R", crash1:"R", crash2:"R", tom1:"R", tom2:"R", floor:"R"
   };
   const DEFAULT_PIECE = { R:"hihat", L:"snare", F:"kick" };
+  const LOOKAHEAD = 0.15;   // seconds of audio committed at a time
   const MAX_TAKE = 12;      // bars before the take stops itself
   const MAX_TRIM = 4;       // bars a saved pattern may span
 
@@ -50,7 +51,7 @@ window.REC = (function () {
     over:{},                         // manual edits, "limb|box" -> piece or null
     limbFor:{},
     rows:{},                         // drums given a track with no hits yet
-    startTime:0, nextBeat:0, timer:null, endTimer:null,
+    startTime:0, nextBeat:0, loopBox:0, timer:null, endTimer:null,
     takeBars:0, trimFrom:0, trimBars:1, loopPass:0
   };
   const meter        = () => METERS[R.meterIdx];
@@ -128,28 +129,35 @@ window.REC = (function () {
   function stopClock() {
     clearInterval(R.timer); R.timer = null;
     clearTimeout(R.endTimer); R.endTimer = null;
+    if (api.silence) api.silence();
   }
 
   function schedTake() {
     const ctx = api.getCtx(); if (!ctx) return;
     const beat = beatDur(), cap = MAX_TAKE * beatsPerBar();
-    while (R.nextBeat < cap && R.startTime + R.nextBeat * beat < ctx.currentTime + .25) {
+    while (R.nextBeat < cap && R.startTime + R.nextBeat * beat < ctx.currentTime + LOOKAHEAD) {
       api.hit("click", R.startTime + R.nextBeat * beat, R.nextBeat % beatsPerBar() === 0);
       R.nextBeat++;
     }
   }
+  /* Box by box, like the main scheduler, so stopping or editing takes
+     effect at once rather than after the rest of the loop has played. */
   function schedLoop() {
     const ctx = api.getCtx(); if (!ctx) return;
-    const hits = derive(), per = beatDur();
-    while (trimStart() + R.loopPass * loopDur() < ctx.currentTime + .25) {
-      const t0 = trimStart() + R.loopPass * loopDur();
-      for (let i = 0; i < beatsPerBar() * R.trimBars; i++)
-        api.hit("click", t0 + i * per, i % beatsPerBar() === 0);
+    const hits = derive(), N = totalBoxes(), boxDur = loopDur() / N;
+    const perTick = R.sub, horizon = ctx.currentTime + LOOKAHEAD;
+    let guard = 0;
+    while (guard++ < 512) {
+      const t = trimStart() + R.loopPass * loopDur() + R.loopBox * boxDur;
+      if (t >= horizon) break;
+      const i = R.loopBox;
+      if (i % perTick === 0) api.hit("click", t, i % boxesPerBar() === 0);
       Object.keys(hits).forEach(k => {
         const [piece, box] = k.split("|");
-        api.hit(piece, t0 + (+box) / totalBoxes() * loopDur(), false);
+        if (+box === i) api.hit(piece, t, false);
       });
-      R.loopPass++;
+      R.loopBox++;
+      if (R.loopBox >= N) { R.loopBox = 0; R.loopPass++; }
     }
   }
 
@@ -191,7 +199,7 @@ window.REC = (function () {
     ui.bar.textContent = "";
     // rebase so the loop starts now rather than in the take's past
     R.startTime = ctx.currentTime + .25 - R.trimFrom * barDur();
-    R.loopPass = 0;
+    R.loopPass = 0; R.loopBox = 0;
     R.timer = setInterval(schedLoop, 25); schedLoop();
     syncAll();
   }
