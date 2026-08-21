@@ -6,7 +6,7 @@
 <title>Rhythm Trainer</title>
 <meta name="description" content="Learn rhythm, odd time, polyrhythms and reading — playable with your own kit over USB.">
 <meta name="theme-color" content="#0a0b0e">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
 
@@ -336,6 +336,7 @@
   <div class="drawerhead">
     <h2>Record a beat</h2>
     <span class="pill" id="recCount"></span>
+    <span class="pill" id="recBar"></span>
     <button class="iconbtn" id="recClose" style="margin-left:auto" aria-label="Close">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
         <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke-linecap="round"/></svg>
@@ -343,15 +344,9 @@
   </div>
 
   <div class="recbody">
-    <div class="recsetup" id="recSetup">
+    <div class="recsetup">
       <label class="recfield"><span>Meter</span><select id="recMeter"></select></label>
       <label class="recfield"><span>Grid</span><select id="recRes"></select></label>
-      <div class="recfield"><span>Length</span>
-        <div class="seg">
-          <button type="button" data-bars="1">1 bar</button>
-          <button type="button" data-bars="2">2 bars</button>
-        </div>
-      </div>
       <div class="recfield"><span>Tempo</span>
         <div class="rectempo">
           <b class="num" id="recBpmVal">80</b>
@@ -362,11 +357,37 @@
       <span class="note" id="recLen" style="margin:0"></span>
     </div>
 
-    <div class="recstage">
-      <div class="recstagehead">
-        <h2 class="eyebrow">What you played</h2>
-        <span class="hint" id="recPass"></span>
+    <div class="recpalette-wrap">
+      <h2 class="eyebrow">Play a drum</h2>
+      <div class="recpalette" id="recPalette"></div>
+    </div>
+
+    <div class="rectransport">
+      <button class="btn primary" id="recRecord">Record</button>
+      <button class="btn" id="recPreview" disabled>Play loop</button>
+      <button class="btn" id="recOverdub" disabled>Overdub</button>
+      <button class="btn ghost" id="recClear" disabled>Clear</button>
+    </div>
+
+    <div id="recTrimWrap" style="display:none">
+      <div class="rectrimhead">
+        <h2 class="eyebrow">Trim to the bars you want</h2>
+        <div class="trimnums">
+          <span>From bar</span>
+          <button class="stepbtn" data-nudge="from:-1" aria-label="Earlier start">&minus;</button>
+          <b id="recFrom">1</b>
+          <button class="stepbtn" data-nudge="from:1" aria-label="Later start">+</button>
+          <span style="margin-left:12px">Length</span>
+          <button class="stepbtn" data-nudge="bars:-1" aria-label="Fewer bars">&minus;</button>
+          <b id="recBars">1</b>
+          <button class="stepbtn" data-nudge="bars:1" aria-label="More bars">+</button>
+        </div>
       </div>
+      <div class="rectrim" id="recTrim"></div>
+    </div>
+
+    <div class="recstage">
+      <h2 class="eyebrow">What you played</h2>
       <svg id="recGrid" viewBox="0 0 1000 196" aria-hidden="true"></svg>
       <p class="note" id="recHint"></p>
     </div>
@@ -378,18 +399,16 @@
   </div>
 
   <div class="recfoot">
-    <button class="btn primary" id="recStart">Start recording</button>
-    <button class="btn ghost" id="recClear">Clear</button>
     <input class="recname" id="recName" type="text" placeholder="Name this beat" maxlength="40">
     <button class="btn" id="recSave">Save beat</button>
     <button class="btn ghost" id="recCancel">Cancel</button>
   </div>
 </aside>
 
-<script src="patterns.js?v=21"></script>
-<script src="notation.js?v=21"></script>
-<script src="lessons.js?v=21"></script>
-<script src="recorder.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="patterns.js?v=25"></script>
+<script src="notation.js?v=25"></script>
+<script src="lessons.js?v=25"></script>
+<script src="recorder.js?v=25"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>

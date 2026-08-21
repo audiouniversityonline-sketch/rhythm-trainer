@@ -79,33 +79,55 @@ its own staff position in the notation, and its own MIDI mapping.
 
 **My beats → Record a beat**, or the same button in Setup.
 
-Pick a meter, a grid resolution and a tempo, press start, and play. You get a count-in,
-then the metronome runs a loop of the chosen length. It is **overdub recording**:
-everything already captured plays back each pass, so you can lay the hi-hat down first,
-add the snare next time round, then the kick. Press stop when you have it.
+Press record, wait for the count-in, and play. **You do not have to stop on a beat** —
+play a fumbled entry, a few bars of the groove, a fill, and a sloppy trailing hit, then
+stop whenever. The take is trimmed afterwards.
 
-Hits are quantised to the grid you chose — eighths, sixteenths, or triplets. Anything
-slightly off lands on the nearest box, and you can **tap any box to add or remove a
-hit** if one went astray, rather than starting over.
+### Trimming
 
-Each drum is assigned to a limb — kick to the foot, snare to the left hand, cymbals and
-toms to the right — and the **which limb plays what** row lets you reassign any of them
-before saving. That matters for a tom fill, where both hands share the same drums.
+When you stop, the take is laid out bar by bar with a block per bar whose height shows
+how much you played in it. The selection defaults to the first bar containing hits
+through the last, so a stray hit after you finished is already excluded.
 
-Name it, save it, and it appears under **My beats**. From that point it is an ordinary
+From there, click a bar to move the start, and use **Length** to set how many bars the
+beat should be, up to four. Only the selected bars become the pattern. Record four bars
+of the same groove and trim to one; record a groove plus a fill and keep all three.
+
+### Playing it in
+
+All nine surfaces record: hi-hat, snare, kick, rack tom 1, rack tom 2, floor tom,
+crash 1, crash 2, and ride. A kit or controller sends them over MIDI through the same
+per-drum mapping used everywhere else.
+
+There is also a **nine-pad palette** in the recorder, so someone with no hardware at all
+can still build a beat with the full kit — click the pads, or use number keys `1`–`9`.
+Every pad lights when its drum is struck, whichever way the hit arrived, so it doubles
+as a check that your kit is mapped correctly.
+
+### After the take
+
+- **Tap any box** in the preview grid to add or remove a hit, rather than re-recording.
+- **Play loop** loops the trimmed selection so you can hear it before committing.
+- **Overdub** loops the selection *and* keeps recording, so you can lay the hi-hat down
+  first and add the snare and kick on later passes.
+- **Which limb plays what** reassigns any drum to a different limb. That matters for a
+  tom fill, where both hands share the same drums and the default puts everything on
+  the right.
+
+Name it and save, and it appears under **My beats**. From that point it is an ordinary
 pattern: the kit view, wheel, grid, composite, notation, timing score, limb practice and
 the tempo trainer all work on it exactly as they do on a built-in rhythm. Which is the
-point — record the part of a song you keep falling apart on, then ramp it from 60 to 100
+point — record the bar of a song you keep falling apart on, then ramp it from 60 to 100
 bpm with the trainer.
 
 Beats are saved in the browser, separately from the rest of your settings. **Export** in
 Setup writes them to a JSON file and **Import** reads one back, so you can move them
 between machines or hand a beat to someone else.
 
-One compromise worth knowing: a two-bar beat is stored as a single bar of a doubled
+One compromise worth knowing: a multi-bar beat is stored as a single bar of a multiplied
 meter, so two bars of 4/4 become one bar of 8/4. The rhythm, the metronome accents and
 the grid are all correct, and the header says "2 bars of 4/4" — but the notation shows
-8/4 rather than two 4/4 bars, because the engraver draws one bar.
+8/4 rather than separate bars, because the engraver draws one bar.
 
 ## Counting a polyrhythm from either side
 
