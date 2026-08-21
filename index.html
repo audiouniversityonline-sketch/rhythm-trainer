@@ -6,7 +6,7 @@
 <title>Rhythm Trainer</title>
 <meta name="description" content="Learn rhythm, odd time, polyrhythms and reading — playable with your own kit over USB.">
 <meta name="theme-color" content="#0a0b0e">
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
 
@@ -275,6 +275,17 @@
     </div>
 
     <div class="dsec">
+      <h2 class="eyebrow">My beats</h2>
+      <div class="drow">
+        <button class="btn" id="beatRecord">Record a beat</button>
+        <button class="btn ghost" id="beatExport">Export</button>
+        <button class="btn ghost" id="beatImport">Import</button>
+        <input type="file" id="beatFile" accept="application/json,.json" style="display:none">
+      </div>
+      <p class="note" id="beatNote"></p>
+    </div>
+
+    <div class="dsec">
       <h2 class="eyebrow">Keyboard</h2>
       <p class="note">
         <code>space</code> play &nbsp; <code>↑</code> <code>↓</code> tempo &nbsp;
@@ -318,9 +329,67 @@
   </div>
 </div>
 
-<script src="patterns.js?v=17"></script>
-<script src="notation.js?v=17"></script>
-<script src="lessons.js?v=17"></script>
-<script src="app.js?v=17"></script>
+
+<!-- ============ BEAT RECORDER ============ -->
+<div class="scrim" id="recScrim"></div>
+<aside class="recmodal" id="recModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Record a beat">
+  <div class="drawerhead">
+    <h2>Record a beat</h2>
+    <span class="pill" id="recCount"></span>
+    <button class="iconbtn" id="recClose" style="margin-left:auto" aria-label="Close">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="recbody">
+    <div class="recsetup" id="recSetup">
+      <label class="recfield"><span>Meter</span><select id="recMeter"></select></label>
+      <label class="recfield"><span>Grid</span><select id="recRes"></select></label>
+      <div class="recfield"><span>Length</span>
+        <div class="seg">
+          <button type="button" data-bars="1">1 bar</button>
+          <button type="button" data-bars="2">2 bars</button>
+        </div>
+      </div>
+      <div class="recfield"><span>Tempo</span>
+        <div class="rectempo">
+          <b class="num" id="recBpmVal">80</b>
+          <input type="range" id="recBpm" min="30" max="200" value="80" step="1" aria-label="Recording tempo">
+        </div>
+      </div>
+      <button class="chip" id="recCountIn" aria-pressed="true"><span class="swatch"></span><span class="label">Count-in</span></button>
+      <span class="note" id="recLen" style="margin:0"></span>
+    </div>
+
+    <div class="recstage">
+      <div class="recstagehead">
+        <h2 class="eyebrow">What you played</h2>
+        <span class="hint" id="recPass"></span>
+      </div>
+      <svg id="recGrid" viewBox="0 0 1000 196" aria-hidden="true"></svg>
+      <p class="note" id="recHint"></p>
+    </div>
+
+    <div class="recassign">
+      <h2 class="eyebrow">Which limb plays what</h2>
+      <div id="recLimbs"></div>
+    </div>
+  </div>
+
+  <div class="recfoot">
+    <button class="btn primary" id="recStart">Start recording</button>
+    <button class="btn ghost" id="recClear">Clear</button>
+    <input class="recname" id="recName" type="text" placeholder="Name this beat" maxlength="40">
+    <button class="btn" id="recSave">Save beat</button>
+    <button class="btn ghost" id="recCancel">Cancel</button>
+  </div>
+</aside>
+
+<script src="patterns.js?v=21"></script>
+<script src="notation.js?v=21"></script>
+<script src="lessons.js?v=21"></script>
+<script src="recorder.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

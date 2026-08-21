@@ -32,6 +32,10 @@ const FOOT_KIT = ["kick","click","hihat"];
 const LIMB_LABEL = { R:"right hand", L:"left hand", F:"foot" };
 const LIMB_KEY   = { R:"J", L:"F", F:"B" };
 const STORE = "polytrainer.v1";
+const BEATS = STORE + ".beats";
+/* Default drum for a limb when the hit came from a key or an on-screen pad
+   rather than a real trigger, which carries no drum of its own. */
+const KEY_PIECE = { R:"hihat", L:"snare", F:"kick" };
 
 const S = {
   group:"polyrhythm", navOpen:"polyrhythm",
@@ -76,6 +80,29 @@ function save(){
     progress:S.progress, show:S.show, latency:S.latency, sound:S.sound,
     bpm:S.bpm, limbs:S.limbs, midiMap:MIDI.map })); } catch (e) {}
 }
+/* Recorded beats live apart from the rest of the settings so a corrupt
+   preferences blob can never take someone's saved work with it. */
+function saveBeats(){
+  try {
+    localStorage.setItem(BEATS, JSON.stringify(PATTERNS.custom.map(p => ({
+      id:p.id, name:p.name, short:p.short, sig:p.sig, div:p.div, ticks:p.ticks,
+      accents:p.accents, voices:p.voices, kit:p.kit, marks:p.marks,
+      bars:p.bars, recordedAt:p.recordedAt
+    }))));
+  } catch (e) {}
+}
+function loadBeats(){
+  try {
+    const arr = JSON.parse(localStorage.getItem(BEATS) || "[]");
+    if (Array.isArray(arr)) arr.forEach(o => { if (validBeat(o)) PATTERNS.addCustom(o); });
+  } catch (e) {}
+}
+function validBeat(o){
+  return o && typeof o.id === "string" && Array.isArray(o.sig) &&
+    Number.isFinite(o.div) && Number.isFinite(o.ticks) && o.div > 0 && o.ticks > 0 &&
+    o.voices && ["R","L","F"].every(v => !o.voices[v] || Array.isArray(o.voices[v]));
+}
+
 function load(){
   try {
     const d = JSON.parse(localStorage.getItem(STORE) || "{}");
@@ -665,6 +692,7 @@ function onMidi(e){
   }
   for (const p of PIECES) if (MIDI.map[p].indexOf(note) !== -1) {
     flashDot(p);
+    if (REC.isOpen()) { REC.onHit(p, inputTime(e.timeStamp)); return; }
     strike({ piece:p }, inputTime(e.timeStamp), "midi");
     ui.midiNote.innerHTML = "Last hit: <b>" + KIT_LABEL[p] + "</b>, note " + note + ".";
     return;
@@ -1016,7 +1044,7 @@ const ui = {};
  "play playIcon bpm bpmVal bpmUp bpmDown mR mL mF mM barCount phasebar " +
  "topactions mobileCtl thumbBar padWrap padHome tour tourRing tourPath tourCard tourTitle tourBody tourStep tourSkip tourBack tourNext guideBtn coach coachRing coachPath coachTip coachText coachHide scrim drawer drawerClose soundR soundL soundF midiEnable midiStatus midiMap midiPill midiNote " +
  "calTarget calStart calClear calResult " +
- "trainer countin haptics exPlay exNote").split(/\s+/).forEach(id => ui[id] = document.getElementById(id));
+ "trainer countin haptics exPlay exNote beatRecord beatExport beatImport beatFile beatNote").split(/\s+/).forEach(id => ui[id] = document.getElementById(id));
 
 /* ---- navigation ---- */
 function buildNav(){
@@ -1050,8 +1078,31 @@ function buildNav(){
         b.innerHTML = p.name + '<span class="sig">' + p.sig[0] + "/" + p.sig[1] + "</span>";
         b.onclick = () => { S.group = g.key; S.patternId = p.id;
           exitLessonIfBrowsing(); rebuild(); restartIfPlaying(); closeSidebar(); };
+        if (p.custom) {
+          const x = document.createElement("button");
+          x.className = "navdel"; x.type = "button";
+          x.setAttribute("aria-label", "Delete " + p.name);
+          x.textContent = "\u00d7";
+          x.onclick = ev => {
+            ev.stopPropagation();
+            if (!confirm("Delete \u201c" + p.name + "\u201d? This cannot be undone.")) return;
+            const wasOn = S.patternId === p.id;
+            PATTERNS.removeCustom(p.id); saveBeats();
+            if (wasOn) { S.group = "straight"; S.patternId = PATTERNS.straight[0].id; }
+            rebuild(); restartIfPlaying();
+          };
+          b.appendChild(x);
+        }
         list.appendChild(b);
       });
+      if (g.key === "custom") {
+        const rec = document.createElement("button");
+        rec.className = "navitem navrec"; rec.type = "button";
+        rec.innerHTML = '<span class="recdot"></span>' +
+          (PATTERNS.custom.length ? "Record another" : "Record a beat");
+        rec.onclick = () => { openRecorder(); closeSidebar(); };
+        list.appendChild(rec);
+      }
     }
     ui.navLibrary.appendChild(head);
     ui.navLibrary.appendChild(list);
@@ -1082,8 +1133,10 @@ function buildTopbar(){
   const P = pat();
   ui.patName.textContent = P.name;
   ui.patSig.textContent = P.sig[0] + "/" + P.sig[1];
-  ui.patSub.textContent = P.div + " boxes" + (P.accents ? " · " + P.accents.join("+") : "") +
-    (P.ratio ? " · counted in " + P.sig[0] : "");
+  ui.patSub.textContent = P.bars > 1
+    ? P.bars + " bars of " + (P.sig[0] / P.bars) + "/" + P.sig[1] + " · " + P.div + " boxes"
+    : P.div + " boxes" + (P.accents ? " · " + P.accents.join("+") : "") +
+      (P.ratio ? " · counted in " + P.sig[0] : "");
   ui.swap.style.display = P.swappable ? "" : "none";
   ui.swap.setAttribute("aria-pressed", String(S.swap));
 
@@ -1187,6 +1240,28 @@ function rebuild(){
   updateLabels(); updatePads(); updateLimbRow(); drawScatter(); renderLesson();
 }
 
+/* ---- beat recorder ---- */
+function openRecorder(){
+  if (S.playing) stop();                 // one loop at a time
+  initAudio();                           // opening is a gesture; prime audio here
+  closeDrawer();
+  REC.open();
+}
+REC.init({
+  getCtx: () => ctx,
+  initAudio, hit,
+  COL, KIT_LABEL, LIMB_LABEL,
+  onSaved(p){
+    PATTERNS.addCustom(p); saveBeats();
+    S.group = "custom"; S.navOpen = "custom"; S.patternId = p.id;
+    exitLessonIfBrowsing();
+    // A recorded beat is just a pattern now, so everything else follows.
+    rebuild();
+    ui.stage.scrollTop = 0;
+  },
+  onClose(){ updateCoach(); }
+});
+
 /* ---- drawer + sidebar ---- */
 function openDrawer(){ ui.drawer.classList.add("open"); ui.scrim.classList.add("open");
   ui.drawer.setAttribute("aria-hidden","false"); ui.drawer.removeAttribute("inert");
@@ -1236,7 +1311,9 @@ ui.viewRow.onclick = e => {
     : { kit:1, limbs:1, wheel:1, balls:1, grid:1, comp:1, notation:1 });
 };
 ["R","L","F"].forEach(v => ui["pad"+v].onpointerdown = e => {
-  e.preventDefault(); initAudio(); strike({limb:v}, inputTime(e.timeStamp), "keyboard"); });
+  e.preventDefault(); initAudio();
+  if (REC.isOpen()) { REC.onHit(KEY_PIECE[v], inputTime(e.timeStamp)); return; }
+  strike({limb:v}, inputTime(e.timeStamp), "keyboard"); });
 
 /* Drumming on a touchscreen means tapping the same spot faster than the
    double-tap threshold, which iOS reads as "zoom in". touch-action in the
@@ -1264,6 +1341,37 @@ ui.lessonNext.onclick = () => {
   ui.lessonResult.textContent = ""; loadStep(); restartIfPlaying();
 };
 ui.lessonExit.onclick = () => { exitLessonIfBrowsing(); rebuild(); };
+ui.beatRecord.onclick = openRecorder;
+ui.beatExport.onclick = () => {
+  const data = JSON.stringify({ kind:"rhythm-trainer-beats", version:1,
+    beats:PATTERNS.custom.map(p => ({ id:p.id, name:p.name, short:p.short, sig:p.sig,
+      div:p.div, ticks:p.ticks, accents:p.accents, voices:p.voices, kit:p.kit,
+      marks:p.marks, bars:p.bars, recordedAt:p.recordedAt })) }, null, 1);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], { type:"application/json" }));
+  a.download = "my-beats.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+ui.beatImport.onclick = () => ui.beatFile.click();
+ui.beatFile.onchange = e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    let n = 0;
+    try {
+      const d = JSON.parse(r.result);
+      const list = Array.isArray(d) ? d : (d && d.beats) || [];
+      list.forEach(o => { if (validBeat(o)) { PATTERNS.addCustom(o); n++; } });
+    } catch (err) { n = -1; }
+    ui.beatNote.innerHTML = n > 0
+      ? "<b style='color:var(--ok)'>Imported " + n + (n === 1 ? " beat." : " beats.") + "</b>"
+      : n === 0 ? "<b style='color:var(--warn)'>Nothing importable in that file.</b>"
+      : "<b style='color:var(--bad)'>That file could not be read.</b>";
+    if (n > 0) { saveBeats(); S.navOpen = "custom"; rebuild(); }
+  };
+  r.readAsText(f); e.target.value = "";
+};
+
 ui.setupBtn.onclick = openDrawer;
 ui.drawerClose.onclick = closeDrawer;
 ui.scrim.onclick = () => { closeDrawer(); closeSidebar(); };
@@ -1287,10 +1395,16 @@ document.addEventListener("keydown", e => {
   if (e.target.closest("input,select,textarea,button,a,[contenteditable]")) return;
   const k = e.key.toLowerCase();
   if (S.keyTriggers === false && "fjb".includes(k)) return;
-  if (e.code === "Space") { e.preventDefault(); S.playing ? stop() : play(); }
-  else if (k === "f") { e.preventDefault(); strike({limb:"L"}, inputTime(e.timeStamp), "keyboard"); }
-  else if (k === "j") { e.preventDefault(); strike({limb:"R"}, inputTime(e.timeStamp), "keyboard"); }
-  else if (k === "b") { e.preventDefault(); strike({limb:"F"}, inputTime(e.timeStamp), "keyboard"); }
+  if (e.code === "Space") { e.preventDefault(); if (REC.isOpen()) return; S.playing ? stop() : play(); }
+  else if (k === "f") { e.preventDefault();
+    if (REC.isOpen()) REC.onHit(KEY_PIECE.L, inputTime(e.timeStamp));
+    else strike({limb:"L"}, inputTime(e.timeStamp), "keyboard"); }
+  else if (k === "j") { e.preventDefault();
+    if (REC.isOpen()) REC.onHit(KEY_PIECE.R, inputTime(e.timeStamp));
+    else strike({limb:"R"}, inputTime(e.timeStamp), "keyboard"); }
+  else if (k === "b") { e.preventDefault();
+    if (REC.isOpen()) REC.onHit(KEY_PIECE.F, inputTime(e.timeStamp));
+    else strike({limb:"F"}, inputTime(e.timeStamp), "keyboard"); }
   else if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); nudgeBpm(e.shiftKey ? 5 : 1); }
   else if (e.key === "ArrowDown" || e.key === "ArrowLeft") { e.preventDefault(); nudgeBpm(e.shiftKey ? -5 : -1); }
 });
@@ -1465,7 +1579,7 @@ NARROW.addEventListener("change", () => { applyLayout(); syncSidebarInert();
   if (tourAt >= 0) showTour(tourAt); else updateCoach(); });
 
 /* ---- boot ---- */
-load();
+load(); loadBeats();
 ui.bpm.value = S.bpm; ui.bpmVal.textContent = S.bpm;
 setPlayIcon(false);
 ui.drawer.setAttribute("inert",""); ui.tour.setAttribute("inert","");

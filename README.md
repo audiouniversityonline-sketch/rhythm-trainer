@@ -16,6 +16,7 @@ GitHub Pages and it runs.
 | `app.js` | Clock, scheduler, views, input, scoring, lessons |
 | `notation.js` | The notation engraver |
 | `patterns.js` | **The rhythm library — edit this to add rhythms** |
+| `recorder.js` | Recording a beat from a kit or controller |
 | `lessons.js` | **The lesson sets — edit this to add lessons** |
 | `audio/` | Drum samples and Ernesto's performance clips (see its README) |
 
@@ -73,6 +74,38 @@ is expressed. Omit `kit` and the limb uses whatever the student picked in Setup.
 Available surfaces: `hihat`, `ride`, `crash1`, `crash2`, `snare`, `rim`, `tom1`, `tom2`,
 `floor`, `kick`. Each has its own synthesized voice, its own place on the kit drawing,
 its own staff position in the notation, and its own MIDI mapping.
+
+## Recording your own beats
+
+**My beats → Record a beat**, or the same button in Setup.
+
+Pick a meter, a grid resolution and a tempo, press start, and play. You get a count-in,
+then the metronome runs a loop of the chosen length. It is **overdub recording**:
+everything already captured plays back each pass, so you can lay the hi-hat down first,
+add the snare next time round, then the kick. Press stop when you have it.
+
+Hits are quantised to the grid you chose — eighths, sixteenths, or triplets. Anything
+slightly off lands on the nearest box, and you can **tap any box to add or remove a
+hit** if one went astray, rather than starting over.
+
+Each drum is assigned to a limb — kick to the foot, snare to the left hand, cymbals and
+toms to the right — and the **which limb plays what** row lets you reassign any of them
+before saving. That matters for a tom fill, where both hands share the same drums.
+
+Name it, save it, and it appears under **My beats**. From that point it is an ordinary
+pattern: the kit view, wheel, grid, composite, notation, timing score, limb practice and
+the tempo trainer all work on it exactly as they do on a built-in rhythm. Which is the
+point — record the part of a song you keep falling apart on, then ramp it from 60 to 100
+bpm with the trainer.
+
+Beats are saved in the browser, separately from the rest of your settings. **Export** in
+Setup writes them to a JSON file and **Import** reads one back, so you can move them
+between machines or hand a beat to someone else.
+
+One compromise worth knowing: a two-bar beat is stored as a single bar of a doubled
+meter, so two bars of 4/4 become one bar of 8/4. The rhythm, the metronome accents and
+the grid are all correct, and the header says "2 bars of 4/4" — but the notation shows
+8/4 rather than two 4/4 bars, because the engraver draws one bar.
 
 ## Counting a polyrhythm from either side
 

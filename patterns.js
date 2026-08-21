@@ -257,10 +257,34 @@ window.PATTERNS = (function () {
     return out;
   }
 
+  /* ---- beats the student records themselves ------------------------ */
+  /* A recorded beat is an ordinary pattern with `custom:true`. Once it is
+     registered here every view, the scoring and the tempo trainer treat it
+     exactly like a built-in one — nothing downstream knows the difference. */
+  const custom = [];
+  function addCustom(o) {
+    const p = mk(o);
+    p.custom = true; p.group = "custom";
+    const at = custom.findIndex(x => x.id === p.id);
+    if (at >= 0) { custom[at] = p; all[all.indexOf(byId[p.id])] = p; }
+    else { custom.push(p); all.push(p); }
+    byId[p.id] = p;
+    return p;
+  }
+  function removeCustom(id) {
+    const p = byId[id]; if (!p || !p.custom) return false;
+    custom.splice(custom.indexOf(p), 1);
+    all.splice(all.indexOf(p), 1);
+    delete byId[id];
+    return true;
+  }
+
   return {
-    all, byId, polyrhythms, straight, odd, reading, kit,
+    all, byId, polyrhythms, straight, odd, reading, kit, custom,
     POLY_DEFS, composite, tickPositions, accentPositions, pieceAt, pieceMap,
+    addCustom, removeCustom,
     groups: [
+      { key:"custom",     label:"My beats" },
       { key:"polyrhythm", label:"Polyrhythms" },
       { key:"straight",   label:"Straight time" },
       { key:"odd",        label:"Odd time" },
