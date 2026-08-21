@@ -230,11 +230,23 @@ function inputTime(stamp){
 let startTime = 0, cycleDur = 0, nextCycle = 0, nextBox = 0, pendingBpm = null, timer = null;
 let scheduled = [], barsPlayed = 0;
 
-/* Commit only a fraction of a second of audio at a time. Scheduling a whole
-   bar at once meant stop, mute and tempo changes could not take effect until
-   the next bar, because the rest of the measure was already in the hardware. */
-const LOOKAHEAD = 0.15;
+/* Schedule note by note rather than a bar at a time. A whole bar in the
+   hardware meant stop, mute and tempo changes could not take effect until
+   the next measure. The horizon stays generous enough to ride out a stalled
+   main thread or a throttled background tab — stopping is instant because
+   silenceAll() cuts the queued nodes, not because the queue is short. */
+const LOOKAHEAD = 0.25;
 let begunCycle = -1;
+
+/* If the page stalled, jump to where the clock actually is instead of
+   dumping every missed note at once, which would fire as a burst. */
+function resync(){
+  const N = AP().div, boxDur = cycleDur / N;
+  const due = Math.ceil((ctx.currentTime - startTime) / boxDur);
+  nextCycle = Math.floor(due / N);
+  nextBox = ((due % N) + N) % N;
+  begunCycle = nextCycle;
+}
 
 function beginCycle(n){
   const t0 = startTime + n * cycleDur;
@@ -255,6 +267,9 @@ function scheduler(){
   const accSet = new Set(PATTERNS.accentPositions(P));
   const horizon = ctx.currentTime + LOOKAHEAD;
   let guard = 0;
+
+  const boxDur0 = cycleDur / P.div;
+  if (ctx.currentTime - (startTime + nextCycle * cycleDur + nextBox * boxDur0) > .25) resync();
 
   while (guard++ < 512) {
     if (nextBox === 0 && begunCycle !== nextCycle) { beginCycle(nextCycle); begunCycle = nextCycle; }

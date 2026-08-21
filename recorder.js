@@ -28,7 +28,7 @@ window.REC = (function () {
     hihat:"R", ride:"R", crash1:"R", crash2:"R", tom1:"R", tom2:"R", floor:"R"
   };
   const DEFAULT_PIECE = { R:"hihat", L:"snare", F:"kick" };
-  const LOOKAHEAD = 0.15;   // seconds of audio committed at a time
+  const LOOKAHEAD = 0.25;   // seconds of audio committed at a time
   const MAX_TAKE = 12;      // bars before the take stops itself
   const MAX_TRIM = 4;       // bars a saved pattern may span
 
